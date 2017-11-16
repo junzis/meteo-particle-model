@@ -36,6 +36,7 @@ class ParticleWindModel():
         # aicraft
         self.AC_X = np.array([])
         self.AC_Y = np.array([])
+        self.AC_Z = np.array([])
         self.AC_WVX = np.array([])
         self.AC_WVY = np.array([])
 
@@ -62,22 +63,12 @@ class ParticleWindModel():
         mask &= self.PTC_Y < self.AREA_XY[1]
         return np.where(mask)[0]
 
-    def strength(self, x0, y0, z0, mask):
+    def strength(self, mask):
         """decaying factor of particles
         """
-        ptc_xs = self.PTC_X[mask]
-        ptc_ys = self.PTC_Y[mask]
-        ptc_zs = self.PTC_Z[mask]
         ptc_ages = self.PTC_AGE[mask]
-        ptc_x0s = self.PTC_X0[mask]
-        ptc_y0s = self.PTC_Y0[mask]
-        ptc_z0s = self.PTC_Z0[mask]
-
-        ptc_d0s = np.sqrt((ptc_xs-x0)**2 + (ptc_ys-y0)**2 + (ptc_zs-z0)**2)
-
-        fd0 = np.exp(-1 * ptc_d0s**2 / (2 * self.DECAY_SIGMA**2))
-        fa = np.exp(-1 * ptc_ages**2 / (2 * self.DECAY_SIGMA**2))
-        return fd0 * fa
+        strength = np.exp(-1 * ptc_ages**2 / (2 * self.DECAY_SIGMA**2))
+        return strength
 
     def ptc_weights(self, x0, y0, z0, mask):
         """particle weights are calculated as gaussian function
@@ -88,11 +79,21 @@ class ParticleWindModel():
         ptc_ys = self.PTC_Y[mask]
         ptc_zs = self.PTC_Z[mask]
 
+        ptc_x0s = self.PTC_X0[mask]
+        ptc_y0s = self.PTC_Y0[mask]
+        ptc_z0s = self.PTC_Z0[mask]
+
         d = np.sqrt((ptc_xs-x0)**2 + (ptc_ys-y0)**2 + (ptc_zs-z0)**2)
         fd = np.exp(-1 * d**2 / (2 * self.PTC_DIST_STRENGTH_SIGMA**2))
 
-        w = fd * self.strength(x0, y0, z0, mask)
-        return w
+        ptc_d0s = np.sqrt((ptc_xs-ptc_x0s)**2 + (ptc_ys-ptc_y0s)**2 + (ptc_zs-ptc_z0s)**2)
+        fd0 = np.exp(-1 * ptc_d0s**2 / (2 * self.PTC_DIST_STRENGTH_SIGMA**2))
+
+        fa = self.strength(mask)
+
+        weights = fd * fd0 * fa
+
+        return weights
 
     def scaled_confidence(self, l):
         """kernel function to scale confidence values
@@ -102,9 +103,19 @@ class ParticleWindModel():
         lscale = (b - a) * (l - np.min(l)) / (np.max(l) - np.min(l)) + a
         return lscale
 
-    def wind_grid(self, coords=None):
+    def wind_grid(self, coords=None, xyz=True, confidence=True):
         if coords is not None:
-            coords_xs, coords_ys, coords_zs = coords
+            if xyz:
+                coords_xs, coords_ys, coords_zs = coords
+            else:
+                lat, lon, alt = coords
+                bearings = aero.bearing(self.lat0, self.lon0, lat, lon)
+                distances = aero.distance(self.lat0, self.lon0, lat, lon)
+
+                coords_xs = distances * np.sin(np.radians(bearings)) / 1000.0
+                coords_ys = distances * np.cos(np.radians(bearings)) / 1000.0
+                coords_zs = alt * aero.ft / 1000.0
+
         else:
             xs = np.arange(self.AREA_XY[0], self.AREA_XY[1]+1, (self.AREA_XY[1]-self.AREA_XY[0])/10)
             ys = np.arange(self.AREA_XY[0], self.AREA_XY[1]+1, (self.AREA_XY[1]-self.AREA_XY[0])/10)
@@ -134,40 +145,45 @@ class ParticleWindModel():
                 ws = self.ptc_weights(x, y, z, mask)
                 vx = np.sum(ws * self.PTC_WVX[mask]) / np.sum(ws)
                 vy = np.sum(ws * self.PTC_WVY[mask]) / np.sum(ws)
-                hmgs = np.linalg.norm(np.cov([self.PTC_WVX[mask], self.PTC_WVY[mask]]))
-                strs = np.mean(self.strength(x, y, z, mask))
-            else:
-                ws = 0
-                vx = -999
-                vy = -999
-                hmgs = 0
-                strs = 0
 
-            if np.isnan(hmgs):
-                hmgs = 0
+                if confidence:
+                    hmgs = np.linalg.norm(np.cov([self.PTC_WVX[mask], self.PTC_WVY[mask]]))
+                    hmgs = 0 if np.isnan(hmgs) else hmgs
+                    strs = np.mean(self.strength(mask))
+            else:
+                ws = 0.0
+                vx = np.nan
+                vy = np.nan
+                if confidence:
+                    hmgs = 0.0
+                    strs = 0.0
 
             coords_wvx.append(vx)
             coords_wvy.append(vy)
 
-            coords_ptc_num.append(n)
-            coords_ptc_wei.append(np.mean(ws))
-            coords_ptc_hmg.append(hmgs)
-            coords_ptc_str.append(strs)
+            if confidence:
+                coords_ptc_num.append(n)
+                coords_ptc_wei.append(np.mean(ws))
+                coords_ptc_hmg.append(hmgs)
+                coords_ptc_str.append(strs)
 
         # compute confidence at each grid point, based on:
         #   particle numbers, mean weights, uniformness of particle headings
-        fw = self.scaled_confidence(coords_ptc_wei)
-        fn = self.scaled_confidence(coords_ptc_num)
-        fh = self.scaled_confidence(coords_ptc_hmg)
-        fs = self.scaled_confidence(coords_ptc_str)
-        coords_confs = (fw + fn + fh + fs) / 4.0
+        if confidence:
+            fw = self.scaled_confidence(coords_ptc_wei)
+            fn = self.scaled_confidence(coords_ptc_num)
+            fh = self.scaled_confidence(coords_ptc_hmg)
+            fs = self.scaled_confidence(coords_ptc_str)
+            coords_confs = (fw + fn + fh + fs) / 4.0
+        else:
+            coords_confs = None
 
         return np.array(coords_xs), np.array(coords_ys), np.array(coords_zs), \
             np.array(coords_wvx), np.array(coords_wvy), np.array(coords_confs)
 
 
     def plot_ac(self, ax, zlevel):
-        mask = (AC_Z > zlevel-self.GRID_BOND_Z) & (AC_Z < zlevel+self.GRID_BOND_Z)
+        mask = (self.AC_Z > zlevel-self.GRID_BOND_Z) & (self.AC_Z < zlevel+self.GRID_BOND_Z)
 
         if len(self.AC_X[mask]) < 2:
             return
@@ -213,13 +229,13 @@ class ParticleWindModel():
         ax.set_ylim(self.AREA_XY)
         ax.set_aspect('equal')
 
-    def plot_wind_grid(self, ax, zlevel, data=None):
+    def plot_wind_grid_at_z(self, ax, zlevel, data=None):
         x, y, z, vx, vy, conf = self.wind_grid() if data is None else data
 
         mask = (z==zlevel)
 
         for x, y, vx, vy in zip(x[mask], y[mask], vx[mask], vy[mask]):
-            if vx > -999 and vy > -999:
+            if np.isfinite(vx) and np.isfinite(vx):
                 ax.scatter(x, y, s=4, color='k')
                 ax.arrow(x, y, vx/2, vy/2, head_width=10, head_length=10,
                          ec='k', fc='k')
@@ -271,7 +287,7 @@ class ParticleWindModel():
         self.plot_ac(ax1, zlevel)
         self.plot_particle_samples(ax2, zlevel)
         self.plot_wind_confidence(ax3, zlevel, data)
-        self.plot_wind_grid(ax3, zlevel, data)
+        self.plot_wind_grid_at_z(ax3, zlevel, data)
         plt.show()
 
     def plot_all_level(self, data=None, nxy=None, return_plot=False):
@@ -287,7 +303,7 @@ class ParticleWindModel():
         for i, z in enumerate(zlevels):
             ax = plt.subplot(n+1, n, i+1)
             self.plot_wind_confidence(ax, z, data=data, nxy=nxy, colorbar=False)
-            self.plot_wind_grid(ax, z, data=data)
+            self.plot_wind_grid_at_z(ax, z, data=data)
             ax.set_xticks([])
             ax.set_yticks([])
             ax.set_title('alt: %d km' % z)
@@ -362,74 +378,103 @@ class ParticleWindModel():
 
             return data
 
-
-    def run(self, wind, tstart, tend, snapat=None, grid=None):
+    def sample(self, wind, dt=1):
+        wind = pd.DataFrame(wind)
         bearings = aero.bearing(self.lat0, self.lon0, wind['lat'], wind['lon'])
         distances = aero.distance(self.lat0, self.lon0, wind['lat'], wind['lon'])
 
-        wind['x'] = distances * np.sin(np.radians(bearings)) / 1000.0
-        wind['y'] = distances * np.cos(np.radians(bearings)) / 1000.0
-        wind['z'] = wind['alt'] * aero.ft / 1000.0
+        wind.loc[:, 'x'] = distances * np.sin(np.radians(bearings)) / 1000.0
+        wind.loc[:, 'y'] = distances * np.cos(np.radians(bearings)) / 1000.0
+        wind.loc[:, 'z'] = wind['alt'] * aero.ft / 1000.0
+
+        self.AC_X = np.asarray(wind['x'])
+        self.AC_Y = np.asarray(wind['y'])
+        self.AC_Z = np.asarray(wind['z'])
+        self.AC_WVX = np.asarray(wind['vwx'])
+        self.AC_WVY = np.asarray(wind['vwy'])
+
+        # update existing particles, random walk motion model
+        n = len(self.PTC_X)
+        if n > 0:
+            ex = np.random.normal(0, self.PTC_WALK_XY_SIGMA, n)
+            ey = np.random.normal(0, self.PTC_WALK_XY_SIGMA, n)
+            self.PTC_X = self.PTC_X + dt*self.PTC_WVX/1000 + ex     # 1/1000 m/s -> km/s
+            self.PTC_Y = self.PTC_Y + dt*self.PTC_WVY/1000 + ey
+            self.PTC_Z = self.PTC_Z + np.random.normal(0, self.PTC_WALK_Z_SIGMA, n)
+            self.PTC_AGE = self.PTC_AGE + dt
+
+        # add new particles
+        n_new_ptc = len(self.AC_X) * self.N_AC_PTCS
+        self.PTC_X = np.append(self.PTC_X, np.zeros(n_new_ptc))
+        self.PTC_Y = np.append(self.PTC_Y, np.zeros(n_new_ptc))
+        self.PTC_Z = np.append(self.PTC_Z, np.zeros(n_new_ptc))
+
+        self.PTC_WVX = np.append(self.PTC_WVX, np.zeros(n_new_ptc))
+        self.PTC_WVY = np.append(self.PTC_WVY, np.zeros(n_new_ptc))
+        self.PTC_AGE = np.append(self.PTC_AGE, np.zeros(n_new_ptc))
+
+        self.PTC_X0 = np.append(self.PTC_X0, np.zeros(n_new_ptc))
+        self.PTC_Y0 = np.append(self.PTC_Y0, np.zeros(n_new_ptc))
+        self.PTC_Z0 = np.append(self.PTC_Z0, np.zeros(n_new_ptc))
+
+        px = np.random.normal(0, self.NEW_PTC_XY_SIGMA, n_new_ptc)
+        py = np.random.normal(0, self.NEW_PTC_XY_SIGMA, n_new_ptc)
+        pz = np.random.normal(0, self.NEW_PTC_Z_SIGMA, n_new_ptc)
+
+        pvx = np.random.normal(0, self.PTC_VW_VARY_SIGMA, n_new_ptc)
+        pvy = np.random.normal(0, self.PTC_VW_VARY_SIGMA, n_new_ptc)
+
+        for i, (x, y, z, vx, vy) in enumerate(zip(self.AC_X, self.AC_Y, self.AC_Z, self.AC_WVX, self.AC_WVY)):
+            idx0 = i*self.N_AC_PTCS
+            idx1 = (i+1) * self.N_AC_PTCS
+
+            self.PTC_X[n+idx0:n+idx1] = x + px[idx0:idx1]
+            self.PTC_Y[n+idx0:n+idx1] = y + py[idx0:idx1]
+            self.PTC_Z[n+idx0:n+idx1] = z + pz[idx0:idx1]
+
+            self.PTC_WVX[n+idx0:n+idx1] = vx * (1 + pvx[idx0:idx1])
+            self.PTC_WVY[n+idx0:n+idx1] = vy * (1 + pvx[idx0:idx1])
+            self.PTC_AGE[n+idx0:n+idx1] = np.zeros(self.N_AC_PTCS)
+
+            self.PTC_X0[n+idx0:n+idx1] = x * np.ones(self.N_AC_PTCS)
+            self.PTC_Y0[n+idx0:n+idx1] = y * np.ones(self.N_AC_PTCS)
+            self.PTC_Z0[n+idx0:n+idx1] = z * np.ones(self.N_AC_PTCS)
+
+        # resample particle
+        idx = self.resample()
+        self.PTC_X = self.PTC_X[idx]
+        self.PTC_Y = self.PTC_Y[idx]
+        self.PTC_Z = self.PTC_Z[idx]
+        self.PTC_WVX = self.PTC_WVX[idx]
+        self.PTC_WVY = self.PTC_WVY[idx]
+        self.PTC_AGE = self.PTC_AGE[idx]
+        self.PTC_X0 = self.PTC_X0[idx]
+        self.PTC_Y0 = self.PTC_Y0[idx]
+        self.PTC_Z0 = self.PTC_Z0[idx]
+
+        return
+
+    def run(self, winds, tstart, tend, snapat=None, grid=None):
+        bearings = aero.bearing(self.lat0, self.lon0, winds['lat'], winds['lon'])
+        distances = aero.distance(self.lat0, self.lon0, winds['lat'], winds['lon'])
+
+        winds['x'] = distances * np.sin(np.radians(bearings)) / 1000.0
+        winds['y'] = distances * np.cos(np.radians(bearings)) / 1000.0
+        winds['z'] = winds['alt'] * aero.ft / 1000.0
 
         for t in range(tstart, tend, 1):
 
-            print t, len(self.PTC_X)
+            # print t, len(self.PTC_X)
 
             if (snapat is not None) and (grid is not None) and (t > tstart):
                 if t in snapat:
                     snapshot = self.wind_grid(grid)
                     self.snapshots[t] = snapshot[3:]  # wx, wy, conf
-                    print "wind grid snapshot at:", t
+                    print "winds grid snapshot at:", t
 
-            obs = wind[wind.ts.astype(int)==t]
-            self.AC_X = obs['x'].as_matrix()
-            self.AC_Y = obs['y'].as_matrix()
-            AC_Z = obs['z'].as_matrix()
-            self.AC_WVX = obs['vwx'].as_matrix()
-            self.AC_WVY = obs['vwy'].as_matrix()
+            w = winds[winds.ts.astype(int)==t]
 
-            # update existing particles, random walk motion model
-            n = len(self.PTC_X)
-            if n > 0:
-                ex = np.random.normal(0, self.PTC_WALK_XY_SIGMA, n)
-                ey = np.random.normal(0, self.PTC_WALK_XY_SIGMA, n)
-                self.PTC_X = self.PTC_X + self.PTC_WVX/1000 + ex     # 1/1000 m/s -> km/s
-                self.PTC_Y = self.PTC_Y + self.PTC_WVY/1000 + ey
-                self.PTC_Z = self.PTC_Z + np.random.normal(0, self.PTC_WALK_Z_SIGMA, n)
-                self.PTC_AGE = self.PTC_AGE + 1
-
-            # add new particles
-            for x, y, z, vx, vy in zip(self.AC_X, self.AC_Y, AC_Z, self.AC_WVX, self.AC_WVY):
-                px = np.random.normal(x, self.NEW_PTC_XY_SIGMA, self.N_AC_PTCS)
-                py = np.random.normal(y, self.NEW_PTC_XY_SIGMA, self.N_AC_PTCS)
-                pz = np.random.normal(z, self.NEW_PTC_Z_SIGMA, self.N_AC_PTCS)
-
-                pvx = vx * (1 + np.random.normal(0, self.PTC_VW_VARY_SIGMA, self.N_AC_PTCS))
-                pvy = vy * (1 + np.random.normal(0, self.PTC_VW_VARY_SIGMA, self.N_AC_PTCS))
-
-                self.PTC_X = np.append(self.PTC_X, px)
-                self.PTC_Y = np.append(self.PTC_Y, py)
-                self.PTC_Z = np.append(self.PTC_Z, pz)
-
-                self.PTC_WVX = np.append(self.PTC_WVX, pvx)
-                self.PTC_WVY = np.append(self.PTC_WVY, pvy)
-                self.PTC_AGE = np.append(self.PTC_AGE, np.zeros(self.N_AC_PTCS))
-
-                self.PTC_X0 = np.append(self.PTC_X0, x*np.ones(self.N_AC_PTCS))
-                self.PTC_Y0 = np.append(self.PTC_Y0, y*np.ones(self.N_AC_PTCS))
-                self.PTC_Z0 = np.append(self.PTC_Z0, z*np.ones(self.N_AC_PTCS))
-
-            # resample particle
-            idx = self.resample()
-            self.PTC_X = self.PTC_X[idx]
-            self.PTC_Y = self.PTC_Y[idx]
-            self.PTC_Z = self.PTC_Z[idx]
-            self.PTC_WVX = self.PTC_WVX[idx]
-            self.PTC_WVY = self.PTC_WVY[idx]
-            self.PTC_AGE = self.PTC_AGE[idx]
-            self.PTC_X0 = self.PTC_X0[idx]
-            self.PTC_Y0 = self.PTC_Y0[idx]
-            self.PTC_Z0 = self.PTC_Z0[idx]
+            self.sample(w)
 
             # time.sleep(0.1)
             # plot_plane()
