@@ -1,6 +1,9 @@
 # Gas Particle Model for Wind Field Construction
 This is the Python library for wind field estimation based on gas particle model. The wind data are computed based on ADS-B and Mode-S using pyModeS library.
 
+The original scientific paper was published at [7th Sesar innovation Days](http://www.sesarju.eu/sites/default/files/documents/sid/2017/SIDs_2017_paper_16.pdf).
+
+---
 
 To use the model, a minimal example is:
 
@@ -47,7 +50,10 @@ pwm.PTC_WALK_XY_SIGMA = 5.0         # km
 pwm.PTC_WALK_Z_SIGMA = 0.2          # km
 pwm.PTC_VW_VARY_SIGMA = 0.002       # km/s
 ```
-## Examples
+
+---
+
+## Example results
 
 One minute simulation:
 ![simulation](data/screenshots/simulation.gif?raw=true)
