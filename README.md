@@ -4,14 +4,13 @@ This is the Python library for wind field estimation based on gas particle model
 The original scientific paper was published at [7th Sesar innovation Days](http://www.sesarju.eu/sites/default/files/documents/sid/2017/SIDs_2017_paper_16.pdf).
 
 ---
-First install `pyModeS` python library:
+First install `pyModeS` python library from `pip`:
 
 ```
 $ pip install pyModeS
 ```
 
-
-To use the particle wind model, a minimal example is:
+To use the particle wind model, a minimal example can be:
 
 ```python
 from particle_model import ParticleWindModel
