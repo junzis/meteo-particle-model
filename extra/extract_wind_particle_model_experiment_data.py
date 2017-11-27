@@ -1,14 +1,18 @@
+import os
+import sys
 import pandas as pd
 import numpy as np
 import time
 import calendar
-import subprocess
 import pyModeS as pms
 from napy import aero
 
-import sys
 sys.path.insert(0, '../')
-from config import dataroot
+import stream
+
+reload(stream)
+
+dataroot = "/mnt/1TB/code_data/wind"
 
 dates = [
     '20170724', '20170725', '20170726', '20170727',
@@ -17,12 +21,14 @@ dates = [
 
 utc_hours = ['00', '06', '12', '18']        # local timezone CEST: GMT+2h
 
+stm = stream.Stream(pwm_ptc=250, pwm_decay=30)
+
 def extract_adsb_ehs(dates):
     for d in dates:
         print "read adsb %s..." % d
-        f_adsb = dataroot + 'wind_paper/adsb/full/ADSB_RAW_' + d + '.csv'
+        f_adsb = dataroot + '/adsb/full/ADSB_RAW_' + d + '.csv'
         print "read ehs %s..." % d
-        f_ehs = dataroot + 'wind_paper/ehs/full/EHS_RAW_' + d + '.csv'
+        f_ehs = dataroot + '/ehs/full/EHS_RAW_' + d + '.csv'
 
         df_adsb = pd.read_csv(f_adsb, names=['ts', 'icao', 'tc', 'msg'])
         df_ehs = pd.read_csv(f_ehs, names=['ts', 'icao', 'msg'])
@@ -36,24 +42,10 @@ def extract_adsb_ehs(dates):
             t1 = ts + 1800
 
             df_adsb[df_adsb['ts'].between(t0, t1)] \
-                .to_csv(dataroot + 'wind_paper/adsb/ADSB_RAW_%s.csv' % dh, index=False)
+                .to_csv(dataroot + '/adsb/ADSB_RAW_%s.csv' % dh, index=False)
 
             df_ehs[df_ehs['ts'].between(t0, t1)] \
-                .to_csv(dataroot + 'wind_paper/ehs/EHS_RAW_%s.csv' % dh, index=False)
-
-
-def decode_adsb(dates):
-    for d in dates:
-        for h in utc_hours:
-            dh = d + h
-
-            print "decoding adsb %s ..." % dh
-
-            f_in = dataroot + 'wind_paper/adsb/ADSB_RAW_' + dh + '.csv'
-            f_out = dataroot + 'wind_paper/adsb/ADSB_DECODED_' + dh + '.csv'
-
-            subprocess.call('python decode_adsb_multi_process.py %s %s' % (f_in, f_out),
-                            shell=True)
+                .to_csv(dataroot + '/ehs/EHS_RAW_%s.csv' % dh, index=False)
 
 
 def compute_wind(dates):
@@ -61,67 +53,53 @@ def compute_wind(dates):
         for h in utc_hours:
             dh = d + h
 
+            if dh in ['2017072400', '2017072406']:
+                continue
+
             print "process %s ..." % dh
 
-            f_adsb = dataroot + 'wind_paper/adsb/ADSB_DECODED_' + dh + '.csv'
-            f_ehs = dataroot + 'wind_paper/ehs/EHS_RAW_' + dh + '.csv'
-            f_wind = dataroot + 'wind_paper/wind_obs/wind_obs_' + dh + '.csv'
+            f_adsb = dataroot + '/adsb/ADSB_RAW_' + dh + '.csv'
+            f_ehs = dataroot + '/ehs/EHS_RAW_' + dh + '.csv'
+            f_wind = dataroot + '/wind_obs/wind_obs_' + dh + '.csv'
 
-            adsb = pd.read_csv(f_adsb)
-            ehs = pd.read_csv(f_ehs)
+            if os.path.isfile(f_wind):
+                print "deleting existing file."
+                os.remove(f_wind)
 
-            icaos = adsb.icao.unique()
-            ehs['bds'] = ehs.msg.apply(pms.ehs.BDS)
+            adsb0 = pd.read_csv(f_adsb)
+            ehs0 = pd.read_csv(f_ehs)
+            adsb0.loc[:, 'tsr'] = adsb0.ts.round().astype(int)
+            ehs0.loc[:, 'tsr'] = ehs0.ts.round().astype(int)
 
-            ehs1 = ehs[ehs['icao'].isin(icaos)].copy()
+            ts0 = adsb0.tsr.min()
+            ts1 = adsb0.tsr.max()
 
-            bds60 = ehs1[ehs1['bds']=='BDS60'].copy()
-            bds50 = ehs1[ehs1['bds']=='BDS50'].copy()
+            tic = time.time()
+            tstart = time.time()
 
-            bds60['hdg'] = bds60.msg.apply(pms.ehs.hdg60)
-            bds60['ias'] = bds60.msg.apply(pms.ehs.ias60)
-            bds60['mach'] = bds60.msg.apply(pms.ehs.mach60)
-            bds60['ts_round'] = bds60['ts'].round().astype(int)
-            bds60.drop(['ts'], axis=1, inplace=True)
-            bds60.drop_duplicates(subset=['ts_round', 'icao'], inplace=True)
+            for t in range(ts0, ts1):
+                if t % 60 == 0:
+                    tm = time.strftime("%Y-%m-%d %H:%M", time.gmtime(t))
+                    toc = time.time()
+                    print " %s (%d second)" % (tm, toc-tic)
+                    tic = toc
 
-            bds50['trk'] = bds50.msg.apply(pms.ehs.trk50)
-            bds50['gs'] = bds50.msg.apply(pms.ehs.gs50)
-            bds50['tas'] = bds50.msg.apply(pms.ehs.tas50)
-            bds50['ts_round'] = bds50['ts'].round().astype(int)
-            bds50.drop(['ts'], axis=1, inplace=True)
-            bds50.drop_duplicates(subset=['ts_round', 'icao'], inplace=True)
+                adsb = adsb0[adsb0.tsr == t]
+                ehs = ehs0[ehs0.tsr == t]
 
-            adsb['trk_adsb'] = adsb['hdg']
-            adsb['gs_adsb'] = adsb['spd']
-            adsb.drop(['hdg', 'spd'], axis=1, inplace=True)
-            adsb['ts_round'] = adsb['ts'].round().astype(int)
+                stm.process_raw(adsb.ts.tolist(), adsb.msg.tolist(),
+                                ehs.ts.tolist(), ehs.msg.tolist(), tnow=t)
 
-            merged = adsb.merge(bds60, how='left', on=['icao', 'ts_round']) \
-                .merge(bds50, how='left', on=['icao', 'ts_round']) \
-                .dropna(subset=['hdg']) \
-                [['ts', 'icao', 'lat', 'lon', 'alt', 'gs_adsb', 'trk_adsb',
-                  'hdg', 'ias', 'mach', 'trk', 'gs', 'tas']]
+                wind = stm.get_current_wind_data()
 
-            merged.dropna(subset=['hdg', 'trk_adsb'], inplace=True)
+                if wind is None:
+                    continue
 
-            merged['vgx'] = merged.apply(lambda r: r.gs_adsb * np.sin(np.radians(r.trk_adsb)) * aero.kts, axis=1)
-            merged['vgy'] = merged.apply(lambda r: r.gs_adsb * np.cos(np.radians(r.trk_adsb)) * aero.kts, axis=1)
-            merged['vax'] = merged.apply(lambda r: aero.cas2tas(r.ias*aero.kts, r.alt*aero.ft) * np.sin(np.radians(r.hdg)), axis=1)
-            merged['vay'] = merged.apply(lambda r: aero.cas2tas(r.ias*aero.kts, r.alt*aero.ft) * np.cos(np.radians(r.hdg)), axis=1)
+                if os.path.isfile(f_wind):
+                    wind.to_csv(f_wind, index=False, header=False, mode='a')
+                else:
+                    wind.to_csv(f_wind, index=False)
 
-            merged['vwx'] = merged['vgx'] - merged['vax']
-            merged['vwy'] = merged['vgy'] - merged['vay']
-            merged['vw'] = np.sqrt(merged['vwx']**2 + merged['vwy']**2)
-            merged['dw'] = np.degrees(np.arctan2(merged['vwx'], merged['vwy']))
-            merged['ts_utc'] = merged['ts'] - 7200
-
-            wind = merged[['ts', 'ts_utc', 'icao', 'lat', 'lon', 'alt', 'vw', 'dw', 'vwx', 'vwy']]
-            wind.loc[:, 'vw'] = wind.loc[:, 'vw'].round(2)
-            wind.loc[:, 'dw'] = wind.loc[:, 'dw'].round(2)
-            wind.loc[:, 'vwx'] = wind.loc[:, 'vwx'].round(2)
-            wind.loc[:, 'vwy'] = wind.loc[:, 'vwy'].round(2)
-            wind.to_csv(f_wind, index=False)
 
 def extract_gfs_wind(dates):
     import pygrib
@@ -139,7 +117,7 @@ def extract_gfs_wind(dates):
 
             print "process %s ..." % dh
 
-            f_grb = dataroot + 'wind_paper/gfsanl/full/%s_gfs.t%sz.pgrb2.0p25.anl' % (dh, h)
+            f_grb = dataroot + '/gfsanl/full/%s_gfs.t%sz.pgrb2.0p25.anl' % (dh, h)
 
             grb = pygrib.open(f_grb)
             grb_wind_v = grb.select(shortName="v", typeOfLevel=['isobaricInhPa'])
@@ -178,9 +156,8 @@ def extract_gfs_wind(dates):
                     data['alt'].extend( alt * np.ones(len(lat1d)) )
 
             df = pd.DataFrame(data)
-            df.to_csv(dataroot + 'wind_paper/gfsanl/gfsanl_%s.csv' % dh, index=False)
+            df.to_csv(dataroot + '/gfsanl/gfsanl_%s.csv' % dh, index=False)
 
 # extract_adsb_ehs(dates)
-# decode_adsb(dates)
-# compute_wind(dates)
+compute_wind(dates)
 # extract_gfs_wind(dates)

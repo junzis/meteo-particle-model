@@ -6,13 +6,13 @@ AREA = 100
 N_AC = 5
 N_AC_PTCS = 1000                # particles per aircraft
 
-DECAY_SIGMA = 5.0
+DECAY_SIGMA = 10.0
 CONF_BOUND = (0.0, 1.0)         # confident normlization bound
 
 NEW_PTC_D_SIGMA = 0.25          # of AREA size
 PTC_WEIGHT_LENGTH_SIGMA = 0.5   # of AREA size
-PTC_HDG_VARY_SIGMA = 0.1        # of AREA size
-PTC_WALK_SIGMA = 0.08           # of AREA size
+PTC_HDG_VARY_SIGMA = 0.01       # of AREA size
+PTC_WALK_SIGMA = 0.01           # of AREA size
 
 # aicraft
 AC_X = np.array([])
@@ -31,7 +31,7 @@ PTC_Y0 = np.array([])
 
 
 def resample():
-    mask = PTC_AGE < DECAY_SIGMA
+    mask = PTC_AGE < DECAY_SIGMA * 3
     mask &= PTC_X > 0
     mask &= PTC_X < AREA
     mask &= PTC_Y > 0
@@ -42,20 +42,13 @@ def wind_grid():
     cd = AREA * PTC_WEIGHT_LENGTH_SIGMA
     ca = DECAY_SIGMA
 
-    def strength(x0, y0, mask):
+    def strength( mask):
         """decaying factor of particles
         """
-        ptc_xs = PTC_X[mask]
-        ptc_ys = PTC_Y[mask]
         ptc_ages = PTC_AGE[mask]
-        ptc_x0s = PTC_X0[mask]
-        ptc_y0s = PTC_Y0[mask]
 
-        ptc_d0s = np.sqrt((ptc_xs-x0)**2 + (ptc_ys-y0)**2)
-
-        fd0 = np.exp(-1 * ptc_d0s**2 / (2 * cd**2))
-        fa = np.exp(-1 * ptc_ages**2 / (2 * ca**2))
-        return fd0 * fa
+        strength = np.exp(-1 * ptc_ages**2 / (2 * ca**2))
+        return strength
 
     def ptc_weights(x0, y0, mask):
         """particle weights are calculated as gaussian function
@@ -65,11 +58,19 @@ def wind_grid():
         ptc_xs = PTC_X[mask]
         ptc_ys = PTC_Y[mask]
 
+        ptc_x0s = PTC_X0[mask]
+        ptc_y0s = PTC_Y0[mask]
+
         d = np.sqrt((ptc_xs-x0)**2 + (ptc_ys-y0)**2)
         fd = np.exp(-1 * d**2 / (2 * cd**2))
 
-        w = fd * strength(x0, y0, mask)
-        return w
+        d0s = np.sqrt((ptc_xs-ptc_x0s)**2 + (ptc_ys-ptc_y0s)**2)
+        fd0 = np.exp(-1 * d0s**2 / (2 * cd**2))
+
+        fa = strength(mask)
+
+        weights = fd * fd0 * fa
+        return weights
 
     def scaled_confidence(l):
         """kernel function to scale confidence values
@@ -99,7 +100,7 @@ def wind_grid():
             vx = np.sum(ws * PTC_WVX[mask]) / np.sum(ws)
             vy = np.sum(ws * PTC_WVY[mask]) / np.sum(ws)
             hmgs = np.linalg.norm(np.cov([PTC_WVX[mask], PTC_WVY[mask]]))
-            strs = np.mean(strength(x, y, mask))
+            strs = np.mean(strength(mask))
         else:
             ws = 0
             vx = 0
@@ -186,9 +187,9 @@ def plot_wind_confidence(ax):
         x.reshape(n, n),
         y.reshape(n, n),
         conf.reshape(n, n),
-        np.arange(0, 1, 0.1),
-        vmax=1,
-        cmap=cm.get_cmap(cm.Greens)
+        np.arange(0.001, 1, 0.1),
+        vmin=0, vmax=1,
+        cmap=cm.get_cmap(cm.BuGn)
     )
     plt.colorbar(CS, fraction=0.046, pad=0.01)
     ax.set_aspect('equal')
@@ -199,8 +200,8 @@ def observe_ac(n):
     x = np.random.uniform(0, AREA, n)
     y = np.random.uniform(0, AREA, n)
 
-    v = np.random.uniform(3, 5, n)
-    hdg = np.random.uniform(0.4*np.pi, 0.8*np.pi, n)
+    v = np.random.normal(4, 0.5, n)
+    hdg = np.random.normal(0.25*np.pi, 0.05*np.pi, n)
     # hdg = np.random.uniform(0, 2*np.pi, n)
 
     vx = v * np.sin(hdg)
@@ -211,7 +212,7 @@ def observe_ac(n):
 
 fig = plt.figure(figsize=(15, 5))
 
-for step in range(50):
+for step in range(60):
     dt = 1
 
     # update aircraft
@@ -263,7 +264,9 @@ for step in range(50):
     plot_particle_samples(ax2)
     plot_wind_confidence(ax3)
     plot_wind_grid(ax3)
-
+    # plt.tight_layout()
+    # plt.savefig('tmp/pwm-sim-%01d.png' % (step+1))
+    # plt.close()
     plt.draw()
     plt.waitforbuttonpress(-1)
     plt.clf()

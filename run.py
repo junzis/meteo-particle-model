@@ -33,7 +33,7 @@ pwm.PTC_VW_VARY_SIGMA = 0.002       # km/s
 # --- end configuration ---
 
 # run model
-pwm.run(wind, tstart=t0, tend=t0+60)
+pwm.run(wind, tstart=t0, tend=t0+120, debug=True)
 
 # display result
 plt.figure(figsize=(6, 8))

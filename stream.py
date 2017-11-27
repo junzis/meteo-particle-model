@@ -13,6 +13,7 @@ class Stream():
 
         self.acs = dict()
         self.updated_acs = set()
+        self.wind = None
 
         self.lat0 = lat0
         self.lon0 = lon0
@@ -62,8 +63,8 @@ class Stream():
 
                 self.acs[icao]['gs'] = spd
                 self.acs[icao]['trk'] = trk
+                self.acs[icao]['roc'] = roc
                 self.acs[icao]['tv'] = t
-                self.updated_acs.update([icao])
 
             if (5 <= tc <= 18):
                 oe = pms.adsb.oe_flag(msg)
@@ -78,13 +79,17 @@ class Stream():
                 elif ('t0' in self.acs[icao]) and ('t1' in self.acs[icao]) and \
                      (abs(self.acs[icao]['t0'] - self.acs[icao]['t1']) < 10):
                     # use multi message decoding
-                    latlon = pms.adsb.position(
-                        self.acs[icao][0],
-                        self.acs[icao][1],
-                        self.acs[icao]['t0'],
-                        self.acs[icao]['t1'],
-                        self.lat0, self.lon0
-                    )
+                    try:
+                        latlon = pms.adsb.position(
+                            self.acs[icao][0],
+                            self.acs[icao][1],
+                            self.acs[icao]['t0'],
+                            self.acs[icao]['t1'],
+                            self.lat0, self.lon0
+                        )
+                    except:
+                        # mix of surface and airborne position message
+                        continue
                 else:
                     latlon = None
 
@@ -138,8 +143,11 @@ class Stream():
                 del self.acs[icao]['hdg']
                 del self.acs[icao]['mach']
 
+        self.compute_current_wind()
 
-    def update_wind_field(self):
+    def compute_current_wind(self):
+        ts = []
+        icaos = []
         lats = []
         lons = []
         alts = []
@@ -148,9 +156,11 @@ class Stream():
         vas = []
         hdgs = []
 
-        for icao, ac in self.acs.iteritems():
-            if ('tpos' not in ac) or ('t60' not in ac) or \
-                    ('gs' not in ac) or (ac['hdg'] is None):
+        for icao in self.updated_acs:   # only last updated
+            ac = self.acs[icao]
+
+            if ('tpos' not in ac) or ('tv' not in ac) or ('t60' not in ac) or \
+                    ('gs' not in ac) or (ac['hdg'] is None) or (ac['trk'] is None):
                 continue
 
             if self.t - ac['tpos'] < 5 and self.t - ac['t60'] < 5:
@@ -161,7 +171,11 @@ class Stream():
                         va = aero.cas2tas(ac['ias'] * 0.5144, ac['alt'] * 0.3048)
                     elif ac['mach']:
                         va = aero.mach2tas(ac['mach'], ac['alt'] * 0.3048)
+                    else:
+                        continue
 
+                ts.append(ac['tpos'])
+                icaos.append(icao)
                 lats.append(ac['lat'])
                 lons.append(ac['lon'])
                 alts.append(ac['alt'])
@@ -178,15 +192,19 @@ class Stream():
         vwx = vgx - vax
         vwy = vgy - vay
 
-        wind = dict()
+        self.wind = dict()
         mask = np.isfinite(vwx)
-        wind['lat'] = np.array(lats)
-        wind['lon'] = np.array(lons)
-        wind['alt'] = np.array(alts)
-        wind['vwx'] = vwx
-        wind['vwy'] = vwy
+        self.wind['ts'] = np.array(ts)
+        self.wind['icao'] = np.array(icaos)
+        self.wind['lat'] = np.array(lats)
+        self.wind['lon'] = np.array(lons)
+        self.wind['alt'] = np.array(alts)
+        self.wind['vwx'] = vwx
+        self.wind['vwy'] = vwy
 
-        self.pwm.sample(wind, self.pwm_dt)
+
+    def update_wind_model(self):
+        self.pwm.sample(self.wind, self.pwm_dt)
         self.pwm_t = self.t
 
 
@@ -194,12 +212,24 @@ class Stream():
         """all aircraft that are stored in memeory (updated within 3 minutes)"""
         return self.acs
 
+
     def get_updated_aircraft(self):
         """update aircraft from last iteration"""
         selacs = dict()
         for ac in self.updated_acs:
             selacs[ac] = self.acs[ac]
         return selacs
+
+    def get_current_wind_data(self):
+        df = pd.DataFrame.from_dict(self.wind)
+
+        if df.shape[0] == 0:
+            return None
+
+        df.loc[:, 'vw'] = np.sqrt(df.vwx**2 + df.vwy**2)
+        df.loc[:, 'dw'] = np.degrees(np.arctan2(df.vwx, df.vwy))
+        columns = ['ts', 'icao', 'lat', 'lon', 'alt', 'vw', 'dw', 'vwx', 'vwy']
+        return df[columns]
 
     def get_current_wind_model(self):
         return self.pwm, self.pwm_t

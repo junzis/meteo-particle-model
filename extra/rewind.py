@@ -4,9 +4,12 @@ import numpy as np
 import time
 import pyModeS as pms
 from napy import aero
-import stream
 import argparse
 import sys
+
+pwmlibpath = os.path.dirname(os.path.realpath(__file__)) + '/../'
+sys.path.insert(0, pwmlibpath)
+import stream
 
 reload(stream)
 
@@ -58,11 +61,11 @@ if ts0 and ts1:
     adsb0 = adsb0[adsb0.ts.between(ts0, ts1)]
     ehs0 = ehs0[ehs0.ts.between(ts0, ts1)]
 
-adsb0['tsr'] = adsb0.ts.round().astype(int)
-ehs0['tsr'] = ehs0.ts.round().astype(int)
+adsb0.loc[:, 'tsr'] = adsb0.ts.round().astype(int)
+ehs0.loc[:, 'tsr'] = ehs0.ts.round().astype(int)
 
-ts0 = adsb0.tsr.min()
-ts1 = adsb0.tsr.max()
+ts0 = int(adsb0.tsr.min())
+ts1 = int(adsb0.tsr.max())
 
 tic = time.time()
 tstart = time.time()
@@ -80,35 +83,37 @@ for t in range(ts0, ts1):
     stm.process_raw(adsb.ts.tolist(), adsb.msg.tolist(),
                     ehs.ts.tolist(), ehs.msg.tolist(), tnow=t)
 
-    stm.update_wind_field()
+    stm.update_wind_model()
 
     pwm, tpwm = stm.get_current_wind_model()
     # print "time:", t, "| icaos:", len(stm.get_updated_aircraft().keys()), "| n_ptc:", len(stm.pwm.PTC_X)
 
+    columns = ['t', 'icao', 'tpos', 'lat', 'lon', 'alt', 'tv', 'gs', 'trk', 'roc',
+               't50', 'tas', 't60', 'ias', 'mach', 'hdg', 'vwx', 'vwy']
+
     acs = pd.DataFrame.from_dict(stm.get_updated_aircraft(), orient='index')
-    acs['icao'] = acs.index
-    acs['vwx'] = np.nan
-    acs['vwy'] = np.nan
 
-    try:
-        wdata = pwm.wind_grid(coords=[acs.lat, acs.lon, acs.alt], xyz=False, confidence=False)
-        vwx = np.round(wdata[3], 2)
-        vwy = np.round(wdata[4], 2)
-
-        acs.loc[:, ['vwx', 'vwy']] = np.array([vwx, vwy]).T
-
-        data = acs[['t', 'icao', 'tpos', 'lat', 'lon', 'alt', 'tv', 'gs', 'trk',
-                    't50', 'tas', 't60', 'ias', 'mach', 'hdg', 'vwx', 'vwy']]
-
-        data.dropna(subset=['tpos', 'tv'], inplace=True)
-    except Exception, err:
-        print err
+    if acs.shape[0] == 0:
         continue
 
+    acs['icao'] = acs.index
+    for c in columns:
+        if c not in acs:
+            acs.loc[:, c] = np.nan
+
+    wdata = pwm.wind_grid(coords=[acs.lat, acs.lon, acs.alt], xyz=False, confidence=False)
+    vwx = np.round(wdata[3], 2)
+    vwy = np.round(wdata[4], 2)
+
+    acs.loc[:, ['vwx', 'vwy']] = np.array([vwx, vwy]).T
+
+    dfout = acs[columns]
+    dfout.dropna(subset=['tpos', 'tv'], inplace=True)
+
     if os.path.isfile(fout):
-        data.to_csv(fout, index=False, header=False, mode='a')
+        dfout.to_csv(fout, index=False, header=False, mode='a')
     else:
-        data.to_csv(fout, index=False)
+        dfout.to_csv(fout, index=False)
 
 
 tend = time.time()

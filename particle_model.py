@@ -301,6 +301,7 @@ class ParticleWindModel():
         #     plt.figure(figsize=(12, 9))
 
         for i, z in enumerate(zlevels):
+            # ax = plt.subplot(n, n+1, i+1)
             ax = plt.subplot(n+1, n, i+1)
             self.plot_wind_confidence(ax, z, data=data, nxy=nxy, colorbar=False)
             self.plot_wind_grid_at_z(ax, z, data=data)
@@ -454,7 +455,7 @@ class ParticleWindModel():
 
         return
 
-    def run(self, winds, tstart, tend, snapat=None, grid=None):
+    def run(self, winds, tstart, tend, snapat=None, grid=None, debug=False):
         bearings = aero.bearing(self.lat0, self.lon0, winds['lat'], winds['lon'])
         distances = aero.distance(self.lat0, self.lon0, winds['lat'], winds['lon'])
 
@@ -464,7 +465,8 @@ class ParticleWindModel():
 
         for t in range(tstart, tend, 1):
 
-            # print t, len(self.PTC_X)
+            if debug:
+                print "time:", t, '| particles:', len(self.PTC_X)
 
             if (snapat is not None) and (grid is not None) and (t > tstart):
                 if t in snapat:
@@ -475,6 +477,3 @@ class ParticleWindModel():
             w = winds[winds.ts.astype(int)==t]
 
             self.sample(w)
-
-            # time.sleep(0.1)
-            # plot_plane()
