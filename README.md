@@ -47,3 +47,10 @@ pwm.PTC_WALK_XY_SIGMA = 5.0         # km
 pwm.PTC_WALK_Z_SIGMA = 0.2          # km
 pwm.PTC_VW_VARY_SIGMA = 0.002       # km/s
 ```
+## Examples
+
+One minute simulation:
+![simulation](data/screenshots/simulation.gif?raw=true)
+
+Wind field from the sample dataset (snapshot at 11/01/2017 12:02)
+![real-wind-field](data/screenshots/real_wind_field.png?raw=true)
