@@ -1,12 +1,19 @@
+import os
+import sys
 import pandas as pd
 import numpy as np
 import pyModeS as pms
 import matplotlib.pyplot as plt
-from napy import aero
+
+pwmlibpath = os.path.dirname(os.path.realpath(__file__)) + '/../'
+sys.path.insert(0, pwmlibpath)
+from lib import aero
+
+root = os.path.dirname(os.path.realpath(__file__))
 
 def aggregate():
-    adsb = pd.read_csv('data/adsb.csv')
-    ehs = pd.read_csv('data/ehs.csv')
+    adsb = pd.read_csv(root+'/../data/adsb_decoded.csv')
+    ehs = pd.read_csv(root+'/../data/ehs_raw.csv')
 
     icaos = adsb.icao.unique()
     ehs['bds'] = ehs.msg.apply(pms.ehs.BDS)
@@ -65,25 +72,8 @@ def calc_wind():
     wind.loc[:, 'dw'] = wind.loc[:, 'dw'].round(2)
     wind.loc[:, 'vwx'] = wind.loc[:, 'vwx'].round(2)
     wind.loc[:, 'vwy'] = wind.loc[:, 'vwy'].round(2)
-    wind.to_csv('data/wind_1200_1300.csv', index=False)
+    wind.to_csv('data/wind.csv', index=False)
 
 if __name__ == '__main__':
-    # aggregate()
-
-    # calc_wind()
-
-    wind = pd.read_csv('data/wind.csv')
-
-    plt.figure(figsize=(12, 4))
-    plt.subplot(131)
-    plt.scatter(wind['vw'], wind['alt'], s=0.1)
-    plt.xlim([0, 100])
-
-    plt.subplot(132)
-    plt.scatter(wind['dw'], wind['alt'], s=0.1)
-    plt.xlim([0, 180])
-
-    plt.subplot(133)
-    plt.scatter(wind['lat'], wind['lon'], s=0.5)
-    plt.tight_layout()
-    plt.show()
+    aggregate()
+    calc_wind()

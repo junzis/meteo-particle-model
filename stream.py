@@ -4,9 +4,9 @@ import numpy as np
 import time
 import datetime
 import pyModeS as pms
-from napy import aero
-from particle_model import ParticleWindModel
 import pprint
+from particle_model import ParticleWindModel
+from lib import aero
 
 class Stream():
     def __init__(self, lat0=51.99, lon0=4.37, pwm_ptc=200, pwm_decay=60, pwm_dt=1):

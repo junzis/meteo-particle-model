@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from napy import aero
+from lib import aero
 import time
 
 class ParticleWindModel():
