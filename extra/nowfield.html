@@ -1,0 +1,17 @@
+<html>
+    <head>
+        <title>Current wind field</title>
+    </head>
+    <body>
+      <img id='windfield' src='../data/screenshots/nowfield.png' />
+    </body>
+    <script>
+      var image = document.getElementById('windfield');
+      image.src = '../data/screenshots/nowfield.png?rand=' + Math.random();
+
+      setInterval(function() {
+          var image = document.getElementById('windfield');
+          image.src = '../data/screenshots/nowfield.png?rand=' + Math.random();
+      }, 1000);
+    </script>
+</html>
