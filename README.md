@@ -71,4 +71,4 @@ One minute simulation:
 ![simulation](data/screenshots/simulation.gif?raw=true)
 
 Wind field from the sample dataset (snapshot at 11/01/2017 12:02)
-![real-wind-field](data/screenshots/real_wind_field.png?raw=true)
+![real-wind-field](data/screenshots/recorded_wind_field.png?raw=true)

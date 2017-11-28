@@ -1,28 +1,47 @@
 import os
+import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import threading
 import pyModeS as pms
 import argparse
 from lib import client, aero
 from stream import Stream
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--server', help='server address or IP', required=True)
+parser.add_argument('--port', help='Raw beast port', required=True)
+args = parser.parse_args()
+server = args.server
+port = int(args.port)
+
+ADSB_TS = []
+ADSB_MSGS = []
+EHS_TS = []
+EHS_MSGS = []
+
+TNOW = 0
+TFLAG = 0
+
+STREAM = Stream(pwm_ptc=300, pwm_decay=30)
+DATA_LOCK = threading.Lock()
+
+root = os.path.dirname(os.path.realpath(__file__))
+
 class PwmBeastClient(client.BaseClient):
     def __init__(self, host, port):
         super(PwmBeastClient, self).__init__(host, port)
-        self.steam = Stream(pwm_ptc=500, pwm_decay=60)
-        self.tnow = 0
-        self.tflag = 0
-        self.reset_buffer()
-
-    def reset_buffer(self):
-        self.adsb_ts = []
-        self.adsb_msgs = []
-        self.ehs_ts = []
-        self.ehs_msgs = []
 
     def handle_messages(self, messages):
+        global ADSB_TS
+        global ADSB_MSGS
+        global EHS_TS
+        global EHS_MSGS
+        global TNOW
+        global TFLAG
+
         for msg, ts in messages:
             if len(msg) != 28:           # wrong data length
                 continue
@@ -30,39 +49,79 @@ class PwmBeastClient(client.BaseClient):
             df = pms.df(msg)
 
             if df == 17:
-                self.adsb_ts.append(ts)
-                self.adsb_msgs.append(msg)
+                ADSB_TS.append(ts)
+                ADSB_MSGS.append(msg)
 
             if df == 20 or df == 21:
-                self.ehs_ts.append(ts)
-                self.ehs_msgs.append(msg)
+                EHS_TS.append(ts)
+                EHS_MSGS.append(msg)
 
-        self.steam.process_raw(self.adsb_ts, self.adsb_msgs,
-                               self.ehs_ts, self.ehs_msgs)
 
-        self.reset_buffer()
+def gen_plot():
+    global ADSB_TS
+    global ADSB_MSGS
+    global EHS_TS
+    global EHS_MSGS
+    global TNOW
+    global TFLAG
 
-        t = messages[-1][1]             # last timestamp
-        if t - self.tnow > 1:
-            self.tnow = int(t)
-            self.tflag += 1
-            self.steam.update_wind_model()
-            print self.tnow, "| wind model updated | particles:", len(self.steam.pwm.PTC_X)
-
-        if self.tflag == 30:
+    while True:
+        if TFLAG >= 15:
+            print "updating plot..."
             plt.figure(figsize=(12, 9))
-            self.steam.compute_current_wind()
-            self.steam.pwm.plot_all_level(landscape_view=True)
-            plt.show()
-            self.tflag = 0
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--server', help='server address or IP', required=True)
-parser.add_argument('--port', help='Raw beast port', required=True)
-args = parser.parse_args()
+            DATA_LOCK.acquire()
+            STREAM.pwm.plot_all_level(return_plot=True, landscape_view=True)
+            DATA_LOCK.release()
 
-server = args.server
-port = int(args.port)
+            tstr = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(TNOW))
+            plt.suptitle('UTC Time: '+tstr)
+            plt.savefig(root+'/data/screenshots/nowfield.png')
+            TFLAG = 0
+        time.sleep(0.2)
 
-rtpwm = PwmBeastClient(host=server, port=port)
-rtpwm.run()
+
+def update_pwm():
+    global ADSB_TS
+    global ADSB_MSGS
+    global EHS_TS
+    global EHS_MSGS
+    global TNOW
+    global TFLAG
+
+    while True:
+        if len(EHS_TS) == 0:
+            time.sleep(0.1)
+            continue
+
+        t = EHS_TS[-1]             # last timestamp
+
+        if t - TNOW > 1:
+            TNOW = int(t)
+            TFLAG += 1
+            STREAM.process_raw(ADSB_TS, ADSB_MSGS, EHS_TS, EHS_MSGS)
+            STREAM.compute_current_wind()
+            DATA_LOCK.acquire()
+            STREAM.update_wind_model()
+            DATA_LOCK.release()
+
+            ADSB_TS = []
+            ADSB_MSGS = []
+            EHS_TS = []
+            EHS_MSGS = []
+
+            print TNOW, "| wind model updated | particles:", len(STREAM.pwm.PTC_X)
+        else:
+            time.sleep(0.1)
+
+
+thread_gen_plot = threading.Thread(target=gen_plot)
+
+client = PwmBeastClient(host=server, port=port)
+thread_client = threading.Thread(target=client.run)
+
+thread_pwm = threading.Thread(target=update_pwm)
+
+thread_client.start()
+thread_pwm.start()
+thread_gen_plot.start()

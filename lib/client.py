@@ -134,6 +134,12 @@ class BaseClient(object):
             except Exception, e:
                 print("Unexpected Error:", e)
 
+                try:
+                    sock = self.connect()
+                except Exception, e:
+                    print("Unexpected Error:", e)
+
+
 
 if __name__ == '__main__':
     # for testing purpose only

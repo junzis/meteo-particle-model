@@ -22,7 +22,7 @@ class Stream():
         self.pwm.N_AC_PTCS = pwm_ptc
         self.pwm.DECAY_SIGMA = pwm_decay
 
-        self.pwm.AREA_XY = (-1000, 1000)  # unlimit bound basiclly
+        self.pwm.AREA_XY = (-300, 300)
 
         self.t = 0
         self.pwm_t = 0
@@ -193,14 +193,14 @@ class Stream():
         vwy = vgy - vay
 
         self.wind = dict()
-        mask = np.isfinite(vwx)
-        self.wind['ts'] = np.array(ts)
-        self.wind['icao'] = np.array(icaos)
-        self.wind['lat'] = np.array(lats)
-        self.wind['lon'] = np.array(lons)
-        self.wind['alt'] = np.array(alts)
-        self.wind['vwx'] = vwx
-        self.wind['vwy'] = vwy
+        mask = np.isfinite(vwx) & (np.abs(vwx) < 100) & (np.abs(vwy) < 100)
+        self.wind['ts'] = np.array(ts)[mask]
+        self.wind['icao'] = np.array(icaos)[mask]
+        self.wind['lat'] = np.array(lats)[mask]
+        self.wind['lon'] = np.array(lons)[mask]
+        self.wind['alt'] = np.array(alts)[mask]
+        self.wind['vwx'] = vwx[mask]
+        self.wind['vwy'] = vwy[mask]
 
 
     def update_wind_model(self):

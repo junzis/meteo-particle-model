@@ -56,7 +56,7 @@ class ParticleWindModel():
 
 
     def resample(self):
-        mask = self.PTC_AGE < self.DECAY_SIGMA
+        mask = self.PTC_AGE < self.DECAY_SIGMA * 3
         mask &= self.PTC_X > self.AREA_XY[0]
         mask &= self.PTC_X < self.AREA_XY[1]
         mask &= self.PTC_Y > self.AREA_XY[0]
@@ -143,8 +143,15 @@ class ParticleWindModel():
 
             if n > self.N_MIN_PTC_TO_COMPUTE:
                 ws = self.ptc_weights(x, y, z, mask)
-                vx = np.sum(ws * self.PTC_WVX[mask]) / np.sum(ws)
-                vy = np.sum(ws * self.PTC_WVY[mask]) / np.sum(ws)
+                wssum = np.sum(ws)
+
+                if wssum < 1e-100:
+                    # incase of all weights becomes almost zero
+                    vx = np.nan
+                    vy = np.nan
+                else:
+                    vx = np.sum(ws * self.PTC_WVX[mask]) / wssum
+                    vy = np.sum(ws * self.PTC_WVY[mask]) / wssum
 
                 if confidence:
                     hmgs = np.linalg.norm(np.cov([self.PTC_WVX[mask], self.PTC_WVY[mask]]))
@@ -237,7 +244,7 @@ class ParticleWindModel():
         for x, y, vx, vy in zip(x[mask], y[mask], vx[mask], vy[mask]):
             if np.isfinite(vx) and np.isfinite(vx):
                 ax.scatter(x, y, s=4, color='k')
-                ax.arrow(x, y, vx/2, vy/2, head_width=10, head_length=10,
+                ax.arrow(x, y, vx, vy, head_width=10, head_length=10,
                          ec='k', fc='k')
             else:
                 ax.scatter(x, y, s=4, color='grey', facecolors='none')
