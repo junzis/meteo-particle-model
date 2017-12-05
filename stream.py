@@ -8,6 +8,17 @@ import pprint
 from particle_model import ParticleWindModel
 from lib import aero
 
+try:
+    import geomag
+    GEO_MAG_SUPPORT = True
+except:
+    print '-' * 80
+    print "Warining: Magnatic heading declination libary (geomag) not found, \
+        \nConsidering aircraft magnetic heading as true heading. \
+        \n(This may lead to errors in wind field.)"
+    print '-' * 80
+    GEO_MAG_SUPPORT = False
+
 class Stream():
     def __init__(self, lat0=51.99, lon0=4.37, pwm_ptc=200, pwm_decay=60, pwm_dt=1):
 
@@ -183,6 +194,14 @@ class Stream():
                 trks.append(np.radians(ac['trk']))
                 vas.append(va)
                 hdgs.append(np.radians(ac['hdg']))
+
+        if GEO_MAG_SUPPORT:
+            d_hdgs = []
+            for i, hdg in enumerate(hdgs):
+                d_hdg = np.radians(geomag.declination(lats[i], lons[i], alts[i]))
+                d_hdgs.append(d_hdg)
+
+            hdgs = hdgs - np.array(d_hdgs)
 
         vgx = vgs * np.sin(trks)
         vgy = vgs * np.cos(trks)
