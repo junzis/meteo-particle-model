@@ -10,6 +10,9 @@ class ParticleWindModel():
         self.lat0 = 51.99
         self.lon0 = 4.37
 
+        self.lat0 = 51.99
+        self.lon0 = 4.37
+
         self.AREA_XY = (-300, 300)           # km
         self.AREA_Z = (0, 12)                # km
 
@@ -19,11 +22,9 @@ class ParticleWindModel():
         self.N_AC_PTCS = 500                 # particles per aircraft
         self.N_MIN_PTC_TO_COMPUTE = 4        # number of particles to compute
 
-        self.CONF_BOUND = (0.0, 1.0)         # confident normlization bound
+        self.CONF_BOUND = (0.0, 1.0)         # confident normalization
 
         self.DECAY_SIGMA = 60.0              # seconds
-        self.NEW_PTC_XY_SIGMA = 4.0          # km
-        self.NEW_PTC_Z_SIGMA = 0.2           # km
         self.PTC_DIST_STRENGTH_SIGMA = 30.0  # km
         self.PTC_WALK_XY_SIGMA = 5.0         # km
         self.PTC_WALK_Z_SIGMA = 0.2          # km
@@ -89,9 +90,9 @@ class ParticleWindModel():
         ptc_d0s = np.sqrt((ptc_xs-ptc_x0s)**2 + (ptc_ys-ptc_y0s)**2 + (ptc_zs-ptc_z0s)**2)
         fd0 = np.exp(-1 * ptc_d0s**2 / (2 * self.PTC_DIST_STRENGTH_SIGMA**2))
 
-        fa = self.strength(mask)
+        # fa = self.strength(mask)
 
-        weights = fd * fd0 * fa
+        weights = fd * fd0
 
         return weights
 
@@ -236,6 +237,7 @@ class ParticleWindModel():
         ax.set_ylim(self.AREA_XY)
         ax.set_aspect('equal')
 
+
     def plot_wind_grid_at_z(self, ax, zlevel, data=None):
         x, y, z, vx, vy, conf = self.wind_grid() if data is None else data
 
@@ -244,7 +246,7 @@ class ParticleWindModel():
         for x, y, vx, vy in zip(x[mask], y[mask], vx[mask], vy[mask]):
             if np.isfinite(vx) and np.isfinite(vx):
                 ax.scatter(x, y, s=4, color='k')
-                ax.arrow(x, y, vx, vy, head_width=10, head_length=10,
+                ax.arrow(x, y, vx*0.7, vy*0.7, head_width=10, head_length=10,
                          ec='k', fc='k')
             else:
                 ax.scatter(x, y, s=4, color='grey', facecolors='none')
@@ -338,53 +340,6 @@ class ParticleWindModel():
         return x, y, z, vx, vy
 
 
-    def dump_paticles_pickle_gz(self):
-        import cPickle
-        import zlib
-        data = {}
-        data['param'] = {}
-
-        data['param']['self.lat0'] = self.lat0
-        data['param']['self.lon0'] = self.lon0
-        data['param']['self.AREA_XY'] = self.AREA_XY
-        data['param']['self.AREA_Z'] = self.AREA_Z
-        data['param']['self.GRID_BOND_XY'] = self.GRID_BOND_XY
-        data['param']['self.GRID_BOND_Z'] = self.GRID_BOND_Z
-        data['param']['self.N_AC_PTCS'] = self.N_AC_PTCS
-        data['param']['self.N_MIN_PTC_TO_COMPUTE'] = self.N_MIN_PTC_TO_COMPUTE
-        data['param']['self.CONF_BOUND'] = self.CONF_BOUND
-        data['param']['self.DECAY_SIGMA'] = self.DECAY_SIGMA
-        data['param']['self.NEW_PTC_XY_SIGMA'] = self.NEW_PTC_XY_SIGMA
-        data['param']['self.NEW_PTC_Z_SIGMA'] = self.NEW_PTC_Z_SIGMA
-        data['param']['self.PTC_DIST_STRENGTH_SIGMA'] = self.PTC_DIST_STRENGTH_SIGMA
-        data['param']['self.PTC_WALK_XY_SIGMA'] = self.PTC_WALK_XY_SIGMA
-        data['param']['self.PTC_WALK_Z_SIGMA'] = self.PTC_WALK_Z_SIGMA
-        data['param']['self.PTC_VW_VARY_SIGMA'] = self.PTC_VW_VARY_SIGMA
-
-        data['self.PTC_X'] = self.PTC_X
-        data['self.PTC_Y'] = self.PTC_Y
-        data['self.PTC_Z'] = self.PTC_Z
-        data['self.PTC_WVX'] = self.PTC_WVX
-        data['self.PTC_WVY'] = self.PTC_WVY
-        data['self.PTC_AGE'] = self.PTC_AGE
-        data['self.PTC_X0'] = self.PTC_X0
-        data['self.PTC_Y0'] = self.PTC_Y0
-        data['self.PTC_Z0'] = self.PTC_Z0
-
-        with open('data/particles.gz', 'wb') as fp:
-          fp.write(zlib.compress(cPickle.dumps(data, cPickle.HIGHEST_PROTOCOL), 9))
-
-
-    def load_particle_pickle_gz(self):
-        import cPickle
-        import zlib
-
-        with open('data/particles.gz', 'rb') as fp:
-            pkl = zlib.decompress(fp.read())
-            data = cPickle.loads(pkl)
-
-            return data
-
     def sample(self, wind, dt=1):
         wind = pd.DataFrame(wind)
         bearings = aero.bearing(self.lat0, self.lon0, wind['lat'], wind['lon'])
@@ -405,8 +360,8 @@ class ParticleWindModel():
         if n > 0:
             ex = np.random.normal(0, self.PTC_WALK_XY_SIGMA, n)
             ey = np.random.normal(0, self.PTC_WALK_XY_SIGMA, n)
-            self.PTC_X = self.PTC_X + dt*self.PTC_WVX/1000 + ex     # 1/1000 m/s -> km/s
-            self.PTC_Y = self.PTC_Y + dt*self.PTC_WVY/1000 + ey
+            self.PTC_X = self.PTC_X + dt*self.PTC_WVX/1000.0 + ex     # 1/1000 m/s -> km/s
+            self.PTC_Y = self.PTC_Y + dt*self.PTC_WVY/1000.0 + ey
             self.PTC_Z = self.PTC_Z + np.random.normal(0, self.PTC_WALK_Z_SIGMA, n)
             self.PTC_AGE = self.PTC_AGE + dt
 
@@ -424,9 +379,9 @@ class ParticleWindModel():
         self.PTC_Y0 = np.append(self.PTC_Y0, np.zeros(n_new_ptc))
         self.PTC_Z0 = np.append(self.PTC_Z0, np.zeros(n_new_ptc))
 
-        px = np.random.normal(0, self.NEW_PTC_XY_SIGMA, n_new_ptc)
-        py = np.random.normal(0, self.NEW_PTC_XY_SIGMA, n_new_ptc)
-        pz = np.random.normal(0, self.NEW_PTC_Z_SIGMA, n_new_ptc)
+        px = np.random.normal(0, self.PTC_WALK_XY_SIGMA/2, n_new_ptc)
+        py = np.random.normal(0, self.PTC_WALK_XY_SIGMA/2, n_new_ptc)
+        pz = np.random.normal(0, self.PTC_WALK_Z_SIGMA/2, n_new_ptc)
 
         pvx = np.random.normal(0, self.PTC_VW_VARY_SIGMA, n_new_ptc)
         pvy = np.random.normal(0, self.PTC_VW_VARY_SIGMA, n_new_ptc)
@@ -460,6 +415,7 @@ class ParticleWindModel():
         self.PTC_Z0 = self.PTC_Z0[idx]
 
         return
+
 
     def run(self, winds, tstart, tend, snapat=None, grid=None, debug=False):
         bearings = aero.bearing(self.lat0, self.lon0, winds['lat'], winds['lon'])
