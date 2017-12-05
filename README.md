@@ -7,14 +7,13 @@ The original scientific paper was published at [7th Sesar innovation Days](http:
 
 ## Dependent libraries
 
-1. You must install `pyModeS` library for ADS-B and Mode-S decoding.
-2. You may also install optional `geomag` library to support the correction of magnetic declination in BDS60 heading.
+1. You must install [`pyModeS`](https://github.com/junzis/pyModeS) library for ADS-B and Mode-S decoding.
+2. You may also install optional `geomag` library, to support the correction of magnetic declination in BDS60 heading.
 
 ```
 $ pip install pyModeS
 $ pip install geomag
 ```
-
 
 ## Code examples
 
