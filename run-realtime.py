@@ -67,7 +67,7 @@ def gen_plot():
 
     while True:
         if TFLAG >= 15:
-            print "updating plot..."
+            print("updating plot...")
             plt.figure(figsize=(12, 9))
 
             DATA_LOCK.acquire()
@@ -110,7 +110,7 @@ def update_pwm():
             EHS_TS = []
             EHS_MSGS = []
 
-            print TNOW, "| wind model updated | particles:", len(STREAM.pwm.PTC_X)
+            print(TNOW, "| wind model updated | particles:", len(STREAM.pwm.PTC_X))
         else:
             time.sleep(0.1)
 

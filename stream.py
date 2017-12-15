@@ -1,4 +1,4 @@
-from __future__ import division
+
 import pandas as pd
 import numpy as np
 import time
@@ -7,6 +7,17 @@ import pyModeS as pms
 import pprint
 from particle_model import ParticleWindModel
 from lib import aero
+
+try:
+    import geomag
+    GEO_MAG_SUPPORT = True
+except:
+    print('-' * 80)
+    print("Warining: Magnatic heading declination libary (geomag) not found, \
+        \nConsidering aircraft magnetic heading as true heading. \
+        \n(This may lead to errors in wind field.)")
+    print('-' * 80)
+    GEO_MAG_SUPPORT = False
 
 class Stream():
     def __init__(self, lat0=51.99, lon0=4.37, pwm_ptc=200, pwm_decay=60, pwm_dt=1):
@@ -79,17 +90,17 @@ class Stream():
                 elif ('t0' in self.acs[icao]) and ('t1' in self.acs[icao]) and \
                      (abs(self.acs[icao]['t0'] - self.acs[icao]['t1']) < 10):
                     # use multi message decoding
-                    try:
-                        latlon = pms.adsb.position(
-                            self.acs[icao][0],
-                            self.acs[icao][1],
-                            self.acs[icao]['t0'],
-                            self.acs[icao]['t1'],
-                            self.lat0, self.lon0
+                    # try:
+                    latlon = pms.adsb.position(
+                        self.acs[icao][0],
+                        self.acs[icao][1],
+                        self.acs[icao]['t0'],
+                        self.acs[icao]['t1'],
+                        self.lat0, self.lon0
                         )
-                    except:
-                        # mix of surface and airborne position message
-                        continue
+                    # except:
+                    #     # mix of surface and airborne position message
+                    #     continue
                 else:
                     latlon = None
 
@@ -128,7 +139,7 @@ class Stream():
                     self.acs[icao]['mach'] = mach
 
         # clear up old data
-        for icao in self.acs.keys():
+        for icao in list(self.acs.keys()):
             if self.t - self.acs[icao]['t'] > 180:
                 del self.acs[icao]
                 continue
@@ -183,6 +194,14 @@ class Stream():
                 trks.append(np.radians(ac['trk']))
                 vas.append(va)
                 hdgs.append(np.radians(ac['hdg']))
+
+        if GEO_MAG_SUPPORT:
+            d_hdgs = []
+            for i, hdg in enumerate(hdgs):
+                d_hdg = np.radians(geomag.declination(lats[i], lons[i], alts[i]))
+                d_hdgs.append(d_hdg)
+
+            hdgs = hdgs - np.array(d_hdgs)
 
         vgx = vgs * np.sin(trks)
         vgy = vgs * np.cos(trks)

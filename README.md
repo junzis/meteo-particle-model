@@ -4,13 +4,20 @@ This is the Python library for wind field estimation based on gas particle model
 The original scientific paper was published at [7th Sesar innovation Days](http://www.sesarju.eu/sites/default/files/documents/sid/2017/SIDs_2017_paper_16.pdf).
 
 ---
-First install `pyModeS` python library from `pip`:
+
+## Dependent libraries
+
+1. You must install [`pyModeS`](https://github.com/junzis/pyModeS) library for ADS-B and Mode-S decoding.
+2. You may also install optional `geomag` library, to support the correction of magnetic declination in BDS60 heading.
 
 ```
 $ pip install pyModeS
+$ pip install geomag
 ```
 
-To use the particle wind model, a minimal example can be:
+## Code examples
+
+To use the particle wind model, a minimal example in `run-recoded.py` is:
 
 ```python
 from particle_model import ParticleWindModel
@@ -65,7 +72,7 @@ pwm.PTC_VW_VARY_SIGMA = 0.002       # km/s
 
 ---
 
-## Example results
+## Plots
 
 One minute simulation:
 ![simulation](data/screenshots/simulation.gif?raw=true)

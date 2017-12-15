@@ -80,8 +80,8 @@ def wind_grid():
         lscale = (b - a) * (l - np.min(l)) / (np.max(l) - np.min(l)) + a
         return lscale
 
-    xs = range(0, AREA+10, 10)
-    ys = range(0, AREA+10, 10)
+    xs = list(range(0, AREA+10, 10))
+    ys = list(range(0, AREA+10, 10))
     xx, yy = np.meshgrid(xs, ys)
     coords_x = xx.flatten()
     coords_y = yy.flatten()
