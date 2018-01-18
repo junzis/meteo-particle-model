@@ -23,7 +23,7 @@ class Stream():
     def __init__(self, lat0=51.99, lon0=4.37, pwm_ptc=200, pwm_decay=60, pwm_dt=1):
 
         self.acs = dict()
-        self.updated_acs = set()
+        self.__updated_acs = set()
         self.wind = None
 
         self.lat0 = lat0
@@ -48,7 +48,8 @@ class Stream():
             tnow = time.time()
 
         self.t = tnow
-        self.updated_acs = set()
+
+        local_updated_acs_buffer = []
 
         # process adsb message
         for t, msg in zip(adsb_ts, adsb_msgs):
@@ -109,7 +110,7 @@ class Stream():
                     self.acs[icao]['lat'] = latlon[0]
                     self.acs[icao]['lon'] = latlon[1]
                     self.acs[icao]['alt'] = pms.adsb.altitude(msg)
-                    self.updated_acs.update([icao])
+                    local_updated_acs_buffer.append(icao)
 
         # process ehs message
         for t, msg in zip(ehs_ts, ehs_msgs):
@@ -154,7 +155,8 @@ class Stream():
                 del self.acs[icao]['hdg']
                 del self.acs[icao]['mach']
 
-        self.compute_current_wind()
+        self.add_updated_aircraft(local_updated_acs_buffer)
+        return
 
     def compute_current_wind(self):
         ts = []
@@ -167,20 +169,30 @@ class Stream():
         vas = []
         hdgs = []
 
-        for icao in self.updated_acs:   # only last updated
-            ac = self.acs[icao]
+        update_acs = self.get_updated_aircraft()
+
+        for icao, ac in update_acs.items():   # only last updated
+            # ac = self.acs[icao]
+            # print(ac['icao'])
 
             if ('tpos' not in ac) or ('tv' not in ac) or ('t60' not in ac) or \
                     ('gs' not in ac) or (ac['hdg'] is None) or (ac['trk'] is None):
                 continue
+            # else:
+            #     print(ac)
 
             if self.t - ac['tpos'] < 5 and self.t - ac['t60'] < 5:
                 if ('t50' in ac) and (ac['t50'] > ac['t60']):
                     va = ac['tas'] * 0.5144
                 else:
-                    if (ac['ias']) and (ac['mach'] < 0.3):
+                    if (ac['ias'] is not None) and (ac['mach'] is not None):
+                        if ac['mach'] < 0.3:
+                            va = aero.cas2tas(ac['ias'] * 0.5144, ac['alt'] * 0.3048)
+                        else:
+                            va = aero.mach2tas(ac['mach'], ac['alt'] * 0.3048)
+                    elif (ac['ias'] is not None) and (ac['mach'] is None):
                         va = aero.cas2tas(ac['ias'] * 0.5144, ac['alt'] * 0.3048)
-                    elif ac['mach']:
+                    elif (ac['ias'] is None) and (ac['mach'] is not None):
                         va = aero.mach2tas(ac['mach'], ac['alt'] * 0.3048)
                     else:
                         continue
@@ -221,6 +233,8 @@ class Stream():
         self.wind['vwx'] = vwx[mask]
         self.wind['vwy'] = vwy[mask]
 
+        # important to reset the buffer
+        self.reset_updated_aircraft()
 
     def update_wind_model(self):
         self.pwm.sample(self.wind, self.pwm_dt)
@@ -232,12 +246,22 @@ class Stream():
         return self.acs
 
 
+    def add_updated_aircraft(self, acs):
+        """add new aircraft to the list"""
+        self.__updated_acs.update(acs)
+        return
+
     def get_updated_aircraft(self):
         """update aircraft from last iteration"""
-        selacs = dict()
-        for ac in self.updated_acs:
-            selacs[ac] = self.acs[ac]
-        return selacs
+        updated = dict()
+        for ac in self.__updated_acs:
+            updated[ac] = self.acs[ac]
+        return updated
+
+    def reset_updated_aircraft(self):
+        """reset the updated icao buffer once been read"""
+        self.__updated_acs = set()
+
 
     def get_current_wind_data(self):
         df = pd.DataFrame.from_dict(self.wind)

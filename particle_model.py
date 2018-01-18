@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from lib import aero
+import datetime
 import time
 
 class ParticleWindModel():
@@ -239,27 +240,31 @@ class ParticleWindModel():
 
 
     def plot_wind_grid_at_z(self, ax, zlevel, data=None):
-        x, y, z, vx, vy, conf = self.wind_grid() if data is None else data
+        xs, ys, zs, vxs, vys, confs = self.wind_grid() if data is None else data
 
-        mask = (z==zlevel)
+        mask1 = (zs==zlevel) & np.isfinite(vxs)
+        mask2 = (zs==zlevel) & np.isnan(vxs)
 
-        for x, y, vx, vy in zip(x[mask], y[mask], vx[mask], vy[mask]):
-            if np.isfinite(vx) and np.isfinite(vx):
-                ax.scatter(x, y, s=4, color='k')
-                ax.arrow(x, y, vx*0.7, vy*0.7, head_width=10, head_length=10,
-                         ec='k', fc='k')
-            else:
-                ax.scatter(x, y, s=4, color='grey', facecolors='none')
+        ax.scatter(xs[mask1], ys[mask1], s=4, color='k')
+        ax.scatter(xs[mask2], ys[mask2], s=4, color='grey', facecolors='none')
+        ax.quiver(xs[mask1], ys[mask1], vxs[mask1]*0.7, vys[mask1]*0.7,
+                 color='k')
+
+        vmean = np.nanmean(np.sqrt(vxs[mask1]**2 + vys[mask1]**2))
+
         ax.set_aspect('equal')
+        ax.set_title('H: %d km | $\\bar v_w$: %d m/s' % (zlevel, vmean),
+                     fontsize=10)
+
 
     def plot_wind_confidence(self, ax, zlevel, data=None, nxy=None, colorbar=True):
-        x, y, z, vx, vy, conf = self.wind_grid() if data is None else data
+        xs, ys, zs, vxs, vys, confs = self.wind_grid() if data is None else data
 
-        mask = (z==zlevel)
+        mask = (zs==zlevel)
 
-        x = x[mask]
-        y = y[mask]
-        conf = conf[mask]
+        x = xs[mask]
+        y = ys[mask]
+        conf = confs[mask]
 
         if nxy is None:
             nx = ny = int(np.sqrt(len(x)))
@@ -315,7 +320,6 @@ class ParticleWindModel():
             self.plot_wind_grid_at_z(ax, z, data=data)
             ax.set_xticks([])
             ax.set_yticks([])
-            ax.set_title('alt: %d km' % z)
 
         if not return_plot:
             plt.tight_layout()
@@ -434,7 +438,8 @@ class ParticleWindModel():
                 if t in snapat:
                     snapshot = self.wind_grid(grid)
                     self.snapshots[t] = snapshot[3:]  # wx, wy, conf
-                    print("winds grid snapshot at:", t)
+                    dt = datetime.datetime.utcfromtimestamp(t).strftime("%Y-%m-%d %H:%M")
+                    print("winds grid snapshot at %s (%d)" % (dt, t))
 
             w = winds[winds.ts.astype(int)==t]
 

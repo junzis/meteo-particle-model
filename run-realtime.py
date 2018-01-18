@@ -75,7 +75,7 @@ def gen_plot():
             DATA_LOCK.release()
 
             tstr = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(TNOW))
-            plt.suptitle('UTC Time: '+tstr)
+            plt.suptitle('Current wind field (UTC %s)' % tstr)
             plt.savefig(root+'/data/screenshots/nowfield.png')
             TFLAG = 0
         time.sleep(0.2)
