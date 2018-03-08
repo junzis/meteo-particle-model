@@ -1,17 +1,24 @@
 <html>
     <head>
-        <title>Current wind field</title>
+        <title>Current wind and temperature field</title>
     </head>
     <body>
-      <img id='windfield' src='../data/screenshots/nowfield.png' />
+      <img id='windfield' src='../data/screenshots/nowfield_wind.png' />
+      <img id='tempfield' src='../data/screenshots/nowfield_temp.png' />
     </body>
     <script>
-      var image = document.getElementById('windfield');
-      image.src = '../data/screenshots/nowfield.png?rand=' + Math.random();
+      var image_wind = document.getElementById('windfield');
+      image_wind.src = '../data/screenshots/nowfield_wind.png?rand=' + Math.random();
+
+      var image_temp = document.getElementById('tempfield');
+      image_temp.src = '../data/screenshots/nowfield_temp.png?rand=' + Math.random();
 
       setInterval(function() {
-          var image = document.getElementById('windfield');
-          image.src = '../data/screenshots/nowfield.png?rand=' + Math.random();
+        var image_wind = document.getElementById('windfield');
+        image_wind.src = '../data/screenshots/nowfield_wind.png?rand=' + Math.random();
+
+        var image_temp = document.getElementById('tempfield');
+        image_temp.src = '../data/screenshots/nowfield_temp.png?rand=' + Math.random();
       }, 1000);
     </script>
 </html>

@@ -1,7 +1,7 @@
 '''
 Stream beast raw data from a TCP server, convert to mode-s messages
 '''
-from __future__ import print_function
+
 import socket
 import time
 
@@ -114,7 +114,7 @@ class BaseClient(object):
 
         while True:
             try:
-                received = [ord(i) for i in sock.recv(1024)]
+                received = sock.recv(1024)
                 self.buffer.extend(received)
                 # print(''.join(x.encode('hex') for x in self.buffer))
 
@@ -131,12 +131,12 @@ class BaseClient(object):
                     self.handle_messages(messages)
 
                 time.sleep(0.001)
-            except Exception, e:
+            except Exception as e:
                 print("Unexpected Error:", e)
 
                 try:
                     sock = self.connect()
-                except Exception, e:
+                except Exception as e:
                     print("Unexpected Error:", e)
 
 

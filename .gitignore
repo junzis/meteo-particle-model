@@ -1,4 +1,5 @@
-data/screenshots/nowfield.png
+data/screenshots/nowfield_*.png
+tmp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

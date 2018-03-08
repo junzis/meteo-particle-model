@@ -1,13 +1,12 @@
 import os
 import sys
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import time
 import threading
 import pyModeS as pms
 import argparse
-from lib import client, aero
+from lib import client
+import mp_vis
 from stream import Stream
 
 parser = argparse.ArgumentParser()
@@ -25,7 +24,10 @@ EHS_MSGS = []
 TNOW = 0
 TFLAG = 0
 
-STREAM = Stream(pwm_ptc=300, pwm_decay=30)
+STREAM = Stream(lat0=51.99, lon0=4.37)
+STREAM.mp.N_AC_PTCS = 500
+STREAM.mp.AGING_SIGMA = 180
+
 DATA_LOCK = threading.Lock()
 
 root = os.path.dirname(os.path.realpath(__file__))
@@ -67,21 +69,30 @@ def gen_plot():
 
     while True:
         if TFLAG >= 15:
-            print "updating plot..."
-            plt.figure(figsize=(12, 9))
+            print("updating plot...")
+
 
             DATA_LOCK.acquire()
-            STREAM.pwm.plot_all_level(return_plot=True, landscape_view=True)
+            data = STREAM.mp.compute()
             DATA_LOCK.release()
 
             tstr = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(TNOW))
-            plt.suptitle('UTC Time: '+tstr)
-            plt.savefig(root+'/data/screenshots/nowfield.png')
+
+            plt.figure(figsize=(12, 9))
+            mp_vis.plot_all_level_wind(STREAM.mp, data=data, return_plot=True, landscape_view=True)
+            plt.suptitle('Current wind field (UTC %s)' % tstr)
+            plt.savefig(root+'/data/screenshots/nowfield_wind.png')
+
+            plt.figure(figsize=(12, 9))
+            mp_vis.plot_all_level_temp(STREAM.mp, data=data, return_plot=True, landscape_view=True)
+            plt.suptitle('Current temperature field (UTC %s)' % tstr)
+            plt.savefig(root+'/data/screenshots/nowfield_temp.png')
+
             TFLAG = 0
         time.sleep(0.2)
 
 
-def update_pwm():
+def update_mp():
     global ADSB_TS
     global ADSB_MSGS
     global EHS_TS
@@ -110,7 +121,7 @@ def update_pwm():
             EHS_TS = []
             EHS_MSGS = []
 
-            print TNOW, "| wind model updated | particles:", len(STREAM.pwm.PTC_X)
+            print("time: %d | n_ptc: %d"  % (TNOW, len(STREAM.mp.PTC_X)))
         else:
             time.sleep(0.1)
 
@@ -120,8 +131,8 @@ thread_gen_plot = threading.Thread(target=gen_plot)
 client = PwmBeastClient(host=server, port=port)
 thread_client = threading.Thread(target=client.run)
 
-thread_pwm = threading.Thread(target=update_pwm)
+thread_mp = threading.Thread(target=update_mp)
 
 thread_client.start()
-thread_pwm.start()
+thread_mp.start()
 thread_gen_plot.start()

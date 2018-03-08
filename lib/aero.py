@@ -31,6 +31,7 @@ inch = 0.0254       # inch -> m
 sqft = 0.09290304   # 1 square foot
 nm = 1852.          # nautical mile -> m
 lbs = 0.453592      # pound -> kg
+
 g0 = 9.80665        # m/s2, Sea level gravity constant
 R = 287.05287       # m2/(s2 x K), gas constant, sea level ISA
 p0 = 101325.        # Pa, air pressure, sea level ISA
@@ -42,7 +43,7 @@ gamma2 = 3.5        # gamma/(gamma-1) for air
 beta = -0.0065      # [K/m] ISA temp gradient below tropopause
 r_earth = 6371000.  # m, average earth radius
 a0 = 340.293988     # m/s, sea level speed of sound ISA, sqrt(gamma*R*T0)
-
+Mo = 0.0289644      # kg/mol, molar mass of dry air
 
 def atmos(H):
     # H in metres
@@ -95,8 +96,8 @@ def distance(lat1, lon1, lat2, lon2, H=0):
     theta1 = np.radians(lon1)
     theta2 = np.radians(lon2)
 
-    cos = np.sin(phi1) * np.sin(phi2) * np.cos(theta1 - theta2) \
-        + np.cos(phi1) * np.cos(phi2)
+    cos = np.sin(phi1) * np.sin(phi2) * np.cos(theta1 - theta2) + np.cos(phi1) * np.cos(phi2)
+    cos = np.where(cos>1, 1, cos)
 
     arc = np.arccos(cos)
     dist = arc * (r_earth + H)   # meters, radius of earth
@@ -116,6 +117,22 @@ def bearing(lat1, lon1, lat2, lon2):
     bearing = (initial_bearing + 360) % 360
     return bearing
 
+
+def position(lat0, lon0, distance, bearing):
+    lat0 = np.radians(lat0)
+    lon0 = np.radians(lon0)
+    bearing = np.radians(bearing)
+
+    lat1 = np.arcsin( np.sin(lat0)*np.cos(distance/r_earth) +
+         np.cos(lat0)*np.sin(distance/r_earth)*np.cos(bearing))
+
+    lon1 = lon0 + np.arctan2(np.sin(bearing)*np.sin(distance/r_earth)*np.cos(lat0),
+                 np.cos(distance/r_earth)-np.sin(lat0)*np.sin(lat1))
+
+    lat1 = np.degrees(lat1)
+    lon1 = np.degrees(lon1)
+
+    return lat1, lon1
 
 # -----------------------------------------------------
 # Speed conversions, altitude H all in meters

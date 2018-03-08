@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 AREA = 100
-N_AC = 5
+N_AC = 6
 N_AC_PTCS = 1000                # particles per aircraft
 
 DECAY_SIGMA = 10.0
@@ -17,20 +17,20 @@ PTC_WALK_SIGMA = 0.01           # of AREA size
 # aicraft
 AC_X = np.array([])
 AC_Y = np.array([])
-AC_VX = np.array([])
-AC_VY = np.array([])
+AC_WX = np.array([])
+AC_WY = np.array([])
 
 # particles
 PTC_X = np.array([])            # current position of particles
 PTC_Y = np.array([])
-PTC_WVX = np.array([])           # particles' wind state
-PTC_WVY = np.array([])
+PTC_WX = np.array([])           # particles' wind state
+PTC_WY = np.array([])
 PTC_AGE = np.array([])
 PTC_X0 = np.array([])           # origin positions of particles
 PTC_Y0 = np.array([])
 
 
-def resample():
+def cleanup():
     mask = PTC_AGE < DECAY_SIGMA * 3
     mask &= PTC_X > 0
     mask &= PTC_X < AREA
@@ -80,13 +80,13 @@ def wind_grid():
         lscale = (b - a) * (l - np.min(l)) / (np.max(l) - np.min(l)) + a
         return lscale
 
-    xs = range(0, AREA+10, 10)
-    ys = range(0, AREA+10, 10)
+    xs = list(range(0, AREA+10, 10))
+    ys = list(range(0, AREA+10, 10))
     xx, yy = np.meshgrid(xs, ys)
     coords_x = xx.flatten()
     coords_y = yy.flatten()
-    coords_wvx = []
-    coords_wvy = []
+    coords_wwx = []
+    coords_wwy = []
     coords_ptc_wei = []
     coords_ptc_num = []
     coords_ptc_hmg = []
@@ -97,22 +97,22 @@ def wind_grid():
         n = len(PTC_X[mask])
         if n > 0:
             ws = ptc_weights(x, y, mask)
-            vx = np.sum(ws * PTC_WVX[mask]) / np.sum(ws)
-            vy = np.sum(ws * PTC_WVY[mask]) / np.sum(ws)
-            hmgs = np.linalg.norm(np.cov([PTC_WVX[mask], PTC_WVY[mask]]))
+            wx = np.sum(ws * PTC_WX[mask]) / np.sum(ws)
+            wy = np.sum(ws * PTC_WY[mask]) / np.sum(ws)
+            hmgs = np.linalg.norm(np.cov([PTC_WX[mask], PTC_WY[mask]]))
             strs = np.mean(strength(mask))
         else:
             ws = 0
-            vx = 0
-            vy = 0
+            wx = 0
+            wy = 0
             hmgs = 0
             strs = 0
 
         if np.isnan(hmgs):
             hmgs = 0
 
-        coords_wvx.append(vx)
-        coords_wvy.append(vy)
+        coords_wwx.append(wx)
+        coords_wwy.append(wy)
 
         coords_ptc_num.append(n)
         coords_ptc_wei.append(np.mean(ws))
@@ -128,16 +128,21 @@ def wind_grid():
     coords_conf = (fw + fn + fh + fs) / 4.0
 
     return np.array(coords_x), np.array(coords_y), \
-        np.array(coords_wvx), np.array(coords_wvy), np.array(coords_conf)
+        np.array(coords_wwx), np.array(coords_wwy), np.array(coords_conf)
 
 
-def plot_ac(ax):
-    for i, (x, y, vx, vy) in enumerate(zip(AC_X, AC_Y, AC_VX, AC_VY)):
-        ax.scatter(x, y, c='k')
-        ax.arrow(x, y, vx, vy, lw=2, head_width=2, head_length=2,
-                 ec='k', fc='k')
+def plot_ac(ax, mask):
+    for i, (x, y, wx, wy) in enumerate(zip(AC_X, AC_Y, AC_WX, AC_WY)):
+        if mask[i]:
+            color = 'k'
+        else:
+            color = 'r'
+
+        ax.scatter(x, y, c=color)
+        ax.arrow(x, y, wx, wy, lw=2, head_width=2, head_length=2,
+                 ec=color, fc=color)
         cir = plt.Circle((x, y), radius=np.sqrt(AREA*0.8),
-                         color='k', fc='none', ls='--', lw=2)
+                         color=color, fc='none', ls='--', lw=2)
         ax.add_patch(cir)
     ax.set_xlim([0, AREA])
     ax.set_ylim([0, AREA])
@@ -148,8 +153,8 @@ def plot_particle_samples(ax, sample=10, draw_hdg=None):
 
     X = PTC_X[::sample][sortidx]
     Y = PTC_Y[::sample][sortidx]
-    VX = PTC_WVX[::sample][sortidx]
-    VY = PTC_WVY[::sample][sortidx]
+    WX = PTC_WX[::sample][sortidx]
+    WY = PTC_WY[::sample][sortidx]
     AGE = PTC_AGE[::sample][sortidx]
 
     if max(AGE) == min(AGE):
@@ -160,54 +165,77 @@ def plot_particle_samples(ax, sample=10, draw_hdg=None):
     ax.scatter(X, Y, s=3, color=Color)
 
     if draw_hdg:
-        for i, (x, y, vx, vy) in enumerate(zip(X, Y, VX, VY)):
-            ax.plot([x, x+vx/2], [y, y+vy/2], color='k', alpha=0.5, lw=1)
+        for i, (x, y, wx, wy) in enumerate(zip(X, Y, WX, WY)):
+            ax.plot([x, x+wx/2], [y, y+wy/2], color='k', alpha=0.5, lw=1)
 
     ax.set_xlim([0, AREA])
     ax.set_ylim([0, AREA])
     ax.set_aspect('equal')
 
 def plot_wind_grid(ax):
-    x, y, vx, vy, conf = wind_grid()
+    x, y, wx, wy, conf = wind_grid()
 
-    for x, y, vx, vy in zip(x, y, vx, vy):
-        if vx!=0 and vy!=0:
+    for x, y, wx, wy in zip(x, y, wx, wy):
+        if wx!=0 and wy!=0:
             ax.scatter(x, y, s=15, color='k')
-            ax.arrow(x, y, vx, vy, head_width=2, head_length=2,
+            ax.arrow(x, y, wx, wy, head_width=2, head_length=2,
                      ec='k', fc='k')
         else:
             ax.scatter(x, y, s=15, color='k', facecolors='none')
     ax.set_aspect('equal')
 
 def plot_wind_confidence(ax):
-    x, y, vx, vy, conf = wind_grid()
+    x, y, wx, wy, conf = wind_grid()
 
     n = int(np.sqrt(len(x)))
     CS = ax.contourf(
         x.reshape(n, n),
         y.reshape(n, n),
         conf.reshape(n, n),
-        np.arange(0.001, 1, 0.1),
-        vmin=0, vmax=1,
-        cmap=cm.get_cmap(cm.BuGn)
+        levels=np.linspace(0, 1, 10),
+        cmap=cm.get_cmap(cm.BuGn),
+        alpha=0.8
     )
     plt.colorbar(CS, fraction=0.046, pad=0.01)
     ax.set_aspect('equal')
 
 
-def observe_ac(n):
+def sample(n, error=False):
     # initialize aicraft
-    x = np.random.uniform(0, AREA, n)
-    y = np.random.uniform(0, AREA, n)
+    x = np.random.normal(AREA/2, AREA/4,  n)
+    y = np.random.normal(AREA/2, AREA/4,  n)
 
-    v = np.random.normal(4, 0.5, n)
-    hdg = np.random.normal(0.25*np.pi, 0.05*np.pi, n)
-    # hdg = np.random.uniform(0, 2*np.pi, n)
+    v = np.random.normal(4, 1, n)
+    hdg = np.random.normal(0.25*np.pi, 0.1*np.pi, n)
 
-    vx = v * np.sin(hdg)
-    vy = v * np.cos(hdg)
+    if error:
+        x[0] = AREA/2
+        y[0] = AREA/2
+        v[0] = np.random.normal(10, 0.5)
+        hdg[0] = np.random.normal(0.25*np.pi, 0.05*np.pi)
 
-    return x, y, vx, vy
+    wx = v * np.sin(hdg)
+    wy = v * np.cos(hdg)
+
+    return x, y, wx, wy
+
+
+def prob_ac_accept():
+    if len(PTC_X) == 0:
+        keep = [True] * len(AC_X)
+    else:
+        mu_wx = np.mean(PTC_WX)
+        mu_wy = np.mean(PTC_WY)
+        sigma_wx = np.std(PTC_WX) * 3
+        sigma_wy = np.std(PTC_WY) * 3
+        prob = np.exp(-0.5 * ((AC_WX-mu_wx)**2/(sigma_wx**2) + (AC_WY-mu_wy)**2/(sigma_wy**2)))
+        choice = np.random.random(len(prob))
+        print()
+        print(prob)
+        print(choice)
+        keep = prob > choice
+
+    return keep
 
 
 fig = plt.figure(figsize=(15, 5))
@@ -216,17 +244,24 @@ for step in range(60):
     dt = 1
 
     # update aircraft
-    AC_X, AC_Y, AC_VX, AC_VY = observe_ac(N_AC)
+    if (step+1) % 2 == 0:
+        # each 2 time step, produce an error
+        AC_X, AC_Y, AC_WX, AC_WY = sample(N_AC, error=True)
+    else:
+        AC_X, AC_Y, AC_WX, AC_WY = sample(N_AC)
 
     # update existing particles, random walk motion model
     n = len(PTC_X)
     if n > 0:
-        PTC_X = PTC_X + np.random.normal(PTC_WVX, PTC_WALK_SIGMA*AREA, n)
-        PTC_Y = PTC_Y + np.random.normal(PTC_WVY, PTC_WALK_SIGMA*AREA, n)
+        PTC_X = PTC_X + np.random.normal(PTC_WX, PTC_WALK_SIGMA*AREA, n)
+        PTC_Y = PTC_Y + np.random.normal(PTC_WY, PTC_WALK_SIGMA*AREA, n)
         PTC_AGE = PTC_AGE + 1
 
+    # get global mean and variacne for error sample rejection
+    mask = prob_ac_accept()
+
     # add new particles
-    for x, y, vx, vy in zip(AC_X, AC_Y, AC_VX, AC_VY):
+    for x, y, wx, wy in zip(AC_X[mask], AC_Y[mask], AC_WX[mask], AC_WY[mask]):
         pxy = np.random.multivariate_normal(
             [x, y],
             [[NEW_PTC_D_SIGMA*AREA, 0], [0, NEW_PTC_D_SIGMA*AREA]],
@@ -235,38 +270,45 @@ for step in range(60):
 
         px = pxy[:, 0]
         py = pxy[:, 1]
-        pvx = vx * (1 + np.random.normal(0, PTC_HDG_VARY_SIGMA, N_AC_PTCS))
-        pvy = vy * (1 + np.random.normal(0, PTC_HDG_VARY_SIGMA, N_AC_PTCS))
+        pwx = wx * (1 + np.random.normal(0, PTC_HDG_VARY_SIGMA, N_AC_PTCS))
+        pwy = wy * (1 + np.random.normal(0, PTC_HDG_VARY_SIGMA, N_AC_PTCS))
 
         PTC_X = np.append(PTC_X, px)
         PTC_Y = np.append(PTC_Y, py)
-        PTC_WVX = np.append(PTC_WVX, pvx)
-        PTC_WVY = np.append(PTC_WVY, pvy)
+        PTC_WX = np.append(PTC_WX, pwx)
+        PTC_WY = np.append(PTC_WY, pwy)
         PTC_AGE = np.append(PTC_AGE, np.zeros(N_AC_PTCS))
         PTC_X0 = np.append(PTC_X0, x*np.ones(N_AC_PTCS))
         PTC_Y0 = np.append(PTC_Y0, y*np.ones(N_AC_PTCS))
 
-    # resample particle
-    idx = resample()
+    # cleanup particle
+    idx = cleanup()
     PTC_X = PTC_X[idx]
     PTC_Y = PTC_Y[idx]
-    PTC_WVX = PTC_WVX[idx]
-    PTC_WVY = PTC_WVY[idx]
+    PTC_WX = PTC_WX[idx]
+    PTC_WY = PTC_WY[idx]
     PTC_AGE = PTC_AGE[idx]
     PTC_X0 = PTC_X0[idx]
     PTC_Y0 = PTC_Y0[idx]
+
+    # # when save image for gif
+    # plt.close()
+    # fig = plt.figure(figsize=(15, 5))
 
     ax1 = fig.add_subplot(131)
     ax2 = fig.add_subplot(132)
     ax3 = fig.add_subplot(133)
 
-    plot_ac(ax1)
+    plot_ac(ax1, mask)
     plot_particle_samples(ax2)
     plot_wind_confidence(ax3)
     plot_wind_grid(ax3)
-    # plt.tight_layout()
-    # plt.savefig('tmp/pwm-sim-%01d.png' % (step+1))
+    plt.tight_layout()
+
+    # # convert -delay 30 -loop 0 *.png animation.gif
+    # plt.savefig('/tmp/mp-sim-%02d.png' % (step+1))
     # plt.close()
+
     plt.draw()
     plt.waitforbuttonpress(-1)
     plt.clf()
