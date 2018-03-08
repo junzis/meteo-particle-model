@@ -18,7 +18,7 @@ $ pip install geomag
 
 ## Code examples
 
-To use the particle wind model, two examples are given in `run-recoded.py` and `run-realtime.py` file.
+Examples of using the model with recorded data and real-time streaming are given in `run-recoded.py` and `run-realtime.py` file.
 
 To quickly test the model out of the box, try:
 

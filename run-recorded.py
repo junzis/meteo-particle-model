@@ -5,7 +5,6 @@ from stream import Stream
 import warnings
 warnings.filterwarnings("ignore")
 
-
 stream = Stream(lat0=51.99, lon0=4.37)
 
 stream.mp.N_AC_PTCS = 500
