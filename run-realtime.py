@@ -73,7 +73,7 @@ def gen_plot():
 
 
             DATA_LOCK.acquire()
-            data = STREAM.mp.compute()
+            data = STREAM.mp.construct()
             DATA_LOCK.release()
 
             tstr = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(TNOW))
