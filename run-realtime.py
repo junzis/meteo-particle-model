@@ -111,9 +111,9 @@ def update_mp():
             TNOW = int(t)
             TFLAG += 1
             STREAM.process_raw(ADSB_TS, ADSB_MSGS, EHS_TS, EHS_MSGS)
-            STREAM.compute_current_wind()
+            STREAM.compute_current_weather()
             DATA_LOCK.acquire()
-            STREAM.update_wind_model()
+            STREAM.update_mp_model()
             DATA_LOCK.release()
 
             ADSB_TS = []
