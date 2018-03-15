@@ -10,7 +10,7 @@ try:
     GEO_MAG_SUPPORT = True
 except:
     print(('-' * 80))
-    print("Warining: Magnatic heading declination libary (geomag) not found, \
+    print("Warning: Magnetic heading declination library (geomag) not found, \
         \nConsidering aircraft magnetic heading as true heading. \
         \n(This may lead to errors in wind field.)")
     print(('-' * 80))
@@ -32,7 +32,7 @@ class Stream():
         self.mp_t = 0
 
     def process_raw(self, adsb_ts, adsb_msgs, ehs_ts, ehs_msgs, tnow=None):
-        """process a chunk of adsb and ehs messages recieved in the same
+        """process a chunk of adsb and ehs messages received in the same
         time period.
         """
         if tnow is None:
@@ -259,7 +259,7 @@ class Stream():
 
 
     def get_cached_aircraft(self):
-        """all aircraft that are stored in memeory (updated within 3 minutes)"""
+        """all aircraft that are stored in memory (updated within 3 minutes)"""
         return self.acs
 
 
