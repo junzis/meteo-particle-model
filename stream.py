@@ -182,8 +182,10 @@ class Stream():
             vias  = ac['ias'] * aero.kts
             mach = ac['mach']
 
-            # p = aero.p0 * np.exp(-1 * aero.Mo * aero.g0 * h / (aero.R * aero.T0) )
-            p = 101325 * np.exp(-0.00012 * h)
+            if h < 11000:
+                p = 101325 * (1 + (-0.0065*h)/288.15)**(-9.81/(-0.0065*287.05))
+            if h >= 11000: # up to 20000 m
+                p = 22632 * np.exp(-(9.81*(h-11000)/(287.05*216.65)))
 
             if mach < 0.3:
                 temp = vtas**2 * p / (vias**2 * aero.rho0 * aero.R)
