@@ -55,7 +55,7 @@ def plot_particle_samples(mp, ax, zlevel, sample=10, draw_hdg=None):
     ax.set_aspect('equal')
 
 
-def plot_wind_grid_at_z(mp, ax, zlevel, data=None):
+def plot_wind_grid_at_z(mp, ax, zlevel, data=None, barbs=False):
     xs, ys, zs, vxs, vys, temps, confws, confts = mp.construct() if data is None else data
 
     mask1 = (zs==zlevel) & np.isfinite(vxs)
@@ -65,9 +65,13 @@ def plot_wind_grid_at_z(mp, ax, zlevel, data=None):
 
     ax.scatter(xs[mask1], ys[mask1], s=4, color='k')
     ax.scatter(xs[mask2], ys[mask2], s=4, color='grey', facecolors='none')
-    ax.quiver(xs[mask1], ys[mask1], vxs[mask1]*0.7, vys[mask1]*0.7,
-             color='k')
-
+    
+    if barbs:
+        ax.barbs(xs[mask1], ys[mask1], vxs[mask1], vys[mask1], length=6, barb_increments={'half': 2.572, 'full': 5.144, 'flag': 25.722})
+    else:
+        ax.quiver(xs[mask1], ys[mask1], vxs[mask1]*0.7, vys[mask1]*0.7,
+                  color='k')
+    
     vmean = np.mean(np.sqrt(vxs[mask1]**2 + vys[mask1]**2))
     vmean = 0 if np.isnan(vmean) else vmean
 
