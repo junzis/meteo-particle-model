@@ -79,7 +79,7 @@ def gen_plot():
             tstr = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(TNOW))
 
             plt.figure(figsize=(12, 9))
-            mp_vis.plot_all_level_wind(STREAM.mp, data=data, return_plot=True, landscape_view=True)
+            mp_vis.plot_all_level_wind(STREAM.mp, data=data, return_plot=True, landscape_view=True, barbs=False)
             plt.suptitle('Current wind field (UTC %s)' % tstr)
             plt.savefig(root+'/data/screenshots/nowfield_wind.png')
 

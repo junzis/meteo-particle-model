@@ -65,13 +65,12 @@ def plot_wind_grid_at_z(mp, ax, zlevel, data=None, barbs=False):
 
     ax.scatter(xs[mask1], ys[mask1], s=4, color='k')
     ax.scatter(xs[mask2], ys[mask2], s=4, color='grey', facecolors='none')
-    
+
     if barbs:
-        ax.barbs(xs[mask1], ys[mask1], vxs[mask1], vys[mask1], length=6, barb_increments={'half': 2.572, 'full': 5.144, 'flag': 25.722})
+        ax.barbs(xs[mask1], ys[mask1], vxs[mask1], vys[mask1], length=5, lw=0.5)
     else:
-        ax.quiver(xs[mask1], ys[mask1], vxs[mask1]*0.7, vys[mask1]*0.7,
-                  color='k')
-    
+        ax.quiver(xs[mask1], ys[mask1], vxs[mask1]*0.7, vys[mask1]*0.7, color='k')
+
     vmean = np.mean(np.sqrt(vxs[mask1]**2 + vys[mask1]**2))
     vmean = 0 if np.isnan(vmean) else vmean
 
@@ -152,7 +151,7 @@ def plot_temperature_at_z(mp, ax, zlevel, data=None, nxy=None, colorbar=True):
                  fontsize=10)
 
 
-def plot_all_level_wind(mp, data=None, nxy=None, return_plot=False, landscape_view=False):
+def plot_all_level_wind(mp, data=None, nxy=None, return_plot=False, landscape_view=False, barbs=False):
     if data is None:
         data = mp.construct()
 
@@ -165,7 +164,7 @@ def plot_all_level_wind(mp, data=None, nxy=None, return_plot=False, landscape_vi
         else:
             ax = plt.subplot(n+1, n, i+1)
         plot_wind_confidence(mp, ax, z, data=data, nxy=nxy, colorbar=False)
-        plot_wind_grid_at_z(mp, ax, z, data=data)
+        plot_wind_grid_at_z(mp, ax, z, data=data, barbs=barbs)
         ax.set_xticks([])
         ax.set_yticks([])
 
