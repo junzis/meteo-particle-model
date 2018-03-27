@@ -393,13 +393,13 @@ class MeteoParticleModel():
             self.sample(w)
 
 
-    def save_snapshot(self, t):
-        data = self.construct()
+    def save_snapshot(self, t, coords=None, xyz=True):
+        data = self.construct(coords=coords, xyz=xyz)
 
-        x, y, z = data[0], data[1], data[2]
+        x, y, z = data[0:3]
 
-        distance = np.sqrt(x**2 + y**2) * 1000 + 1e-200
-        bearing = np.arcsin(1000 * x / distance)
+        distance = np.sqrt(x**2 + y**2) * 1000
+        bearing = np.degrees(np.arctan2(x, y))
 
         lat1, lon1 = aero.position(self.lat0, self.lon0, distance, bearing)
         alt1 = z * 1000 / aero.ft

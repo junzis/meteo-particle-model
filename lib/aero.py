@@ -134,6 +134,7 @@ def position(lat0, lon0, distance, bearing):
 
     return lat1, lon1
 
+
 # -----------------------------------------------------
 # Speed conversions, altitude H all in meters
 # -----------------------------------------------------
