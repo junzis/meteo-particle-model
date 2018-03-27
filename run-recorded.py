@@ -33,6 +33,10 @@ for t in range(ts0, ts0+100):
 
     print("time: %d | n_ptc: %d"  % (t-ts0, len(stream.mp.PTC_X)))
 
+
+# take an example snapshot
+stream.mp.save_snapshot(t)
+
 # construct example grid when finish
 data = stream.mp.construct()
 

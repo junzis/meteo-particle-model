@@ -368,13 +368,13 @@ class MeteoParticleModel():
         return
 
 
-    def run(self, winds, tstart, tend, snapat=None, coords=None, debug=False):
+    def legacy_run(self, winds, tstart, tend, snapat=None, coords=None, debug=False):
         bearings = aero.bearing(self.lat0, self.lon0, winds['lat'], winds['lon'])
         distances = aero.distance(self.lat0, self.lon0, winds['lat'], winds['lon'])
 
-        winds['x'] = distances * np.sin(np.radians(bearings)) / 1000.0
-        winds['y'] = distances * np.cos(np.radians(bearings)) / 1000.0
-        winds['z'] = winds['alt'] * aero.ft / 1000.0
+        winds['x'] = distances * np.sin(np.radians(bearings)) / 1000
+        winds['y'] = distances * np.cos(np.radians(bearings)) / 1000
+        winds['z'] = winds['alt'] * aero.ft / 1000
 
         for t in range(tstart, tend, 1):
 
@@ -391,3 +391,26 @@ class MeteoParticleModel():
             w = winds[winds.ts.astype(int)==t]
 
             self.sample(w)
+
+
+    def save_snapshot(self, t):
+        data = self.construct()
+
+        x, y, z = data[0], data[1], data[2]
+
+        distance = np.sqrt(x**2 + y**2) * 1000 + 1e-200
+        bearing = np.arcsin(1000 * x / distance)
+
+        lat1, lon1 = aero.position(self.lat0, self.lon0, distance, bearing)
+        alt1 = z * 1000 / aero.ft
+
+        df = pd.DataFrame()
+        df['lat'] = lat1
+        df['lon'] = lon1
+        df['alt'] = alt1
+        df['windx'] = data[3]
+        df['windy'] = data[4]
+        df['temp'] = data[5]
+        df['wind_confidence'] = data[6]
+        df['temp_confidence'] = data[7]
+        df.to_csv('data/snapshot_%s.csv' % t, index=False)
