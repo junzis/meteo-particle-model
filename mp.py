@@ -413,4 +413,4 @@ class MeteoParticleModel():
         df['temp'] = data[5]
         df['wind_confidence'] = data[6]
         df['temp_confidence'] = data[7]
-        df.to_csv('data/snapshot_%s.csv' % t, index=False)
+        df.to_csv('data/snapshots/snapshot_%s.csv' % t, index=False)
