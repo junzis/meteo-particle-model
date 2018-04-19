@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import time
 import pyModeS as pms
+from collections import OrderedDict
 from mp import MeteoParticleModel
 from lib import aero
 
@@ -197,22 +198,6 @@ class Stream():
 
             va = vtas if ac['t50'] > ac['t60'] else vtas2
 
-            # # compute wind - ISA conditions - old model
-            # if ('t50' in ac) and (ac['t50'] > ac['t60']):
-            #     va = ac['tas'] * 0.5144
-            # else:
-            #     if (ac['ias'] is not None) and (ac['mach'] is not None):
-            #         if ac['mach'] < 0.3:
-            #             va = aero.cas2tas(ac['ias'] * 0.5144, ac['alt'] * 0.3048)
-            #         else:
-            #             va = aero.mach2tas(ac['mach'], ac['alt'] * 0.3048)
-            #     elif (ac['ias'] is not None) and (ac['mach'] is None):
-            #         va = aero.cas2tas(ac['ias'] * 0.5144, ac['alt'] * 0.3048)
-            #     elif (ac['ias'] is None) and (ac['mach'] is not None):
-            #         va = aero.mach2tas(ac['mach'], ac['alt'] * 0.3048)
-            #     else:
-            #         continue
-
             ts.append(ac['tpos'])
             icaos.append(icao)
             lats.append(ac['lat'])
@@ -240,7 +225,7 @@ class Stream():
         wx = vgx - vax
         wy = vgy - vay
 
-        self.weather = dict()
+        self.weather = OrderedDict()
         self.weather['ts'] = np.array(ts)
         self.weather['icao'] = np.array(icaos)
         self.weather['lat'] = np.array(lats)
@@ -250,10 +235,13 @@ class Stream():
         self.weather['wy'] = wy
         self.weather['temp'] = temps
 
-        # important to reset the buffer
+        # very important to reset the buffer
         self.reset_updated_aircraft()
 
-        return self.weather
+        # return the new weather dataframe
+        df_weather = pd.DataFrame.from_dict(self.weather)
+        return df_weather if df_weather.shape[0]>0 else None
+
 
     def update_mp_model(self):
         self.mp.sample(self.weather)
@@ -282,18 +270,6 @@ class Stream():
     def reset_updated_aircraft(self):
         """reset the updated icao buffer once been read"""
         self.__ehs_updated_acs = set()
-
-
-    def get_current_weather_data(self):
-        df = pd.DataFrame.from_dict(self.weather)
-
-        if df.shape[0] == 0:
-            return None
-
-        df.loc[:, 'vw'] = np.sqrt(df.wx**2 + df.wy**2)
-        df.loc[:, 'dw'] = np.degrees(np.arctan2(df.wx, df.wy))
-        columns = ['ts', 'icao', 'lat', 'lon', 'alt', 'vw', 'dw', 'wx', 'wy']
-        return df[columns]
 
     def get_current_mp_model(self):
         return self.mp, self.mp_t

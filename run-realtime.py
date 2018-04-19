@@ -1,5 +1,12 @@
+"""
+This is a example script to use the MP model on raw data stream. It connects
+to a Mode-S Beast like raw stream.
+
+Usage:
+python run-realtime.py --server SERVER_ADDR_OR_IP --port PORT_NUMBER
+"""
+
 import os
-import sys
 import matplotlib.pyplot as plt
 import time
 import threading

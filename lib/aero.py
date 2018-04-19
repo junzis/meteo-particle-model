@@ -33,7 +33,7 @@ nm = 1852.          # nautical mile -> m
 lbs = 0.453592      # pound -> kg
 
 g0 = 9.80665        # m/s2, Sea level gravity constant
-R = 287.05287       # m2/(s2 x K), gas constant, sea level ISA
+R = 287.05287       # J/(kg x K), gas constant, sea level ISA
 p0 = 101325.        # Pa, air pressure, sea level ISA
 rho0 = 1.225        # kg/m3, air density, sea level ISA
 T0 = 288.15         # K, temperature, sea level ISA
