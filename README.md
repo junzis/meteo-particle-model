@@ -2,8 +2,6 @@
 
 This is the Python library for wind field estimation based on the Meteo-Particle particle model. The wind and temperature is computed from ADS-B and Mode-S data using pyModeS library.
 
-The original scientific paper was published at [7th Sesar innovation Days](http://www.sesarju.eu/sites/default/files/documents/sid/2017/SIDs_2017_paper_16.pdf).
-
 ---
 
 ## Dependent libraries
