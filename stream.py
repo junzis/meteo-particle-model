@@ -17,21 +17,34 @@ except:
     print(('-' * 80))
     GEO_MAG_SUPPORT = False
 
+# Aircraft database from https://junzisun.com/adb/data
+acdb = pd.read_csv('data/aircraft_db.csv', dtype=str)
+acdb['icao'] = acdb['icao'].str.upper()
+acdb['mdl'] = acdb['mdl'].str.upper()
+
+magdev = pd.read_csv('data/BDS60_correction.csv')
+acdb = acdb.merge(magdev, on='mdl')
+acdb.set_index('icao', inplace=True)
+
 class Stream():
-    def __init__(self, lat0, lon0):
+    def __init__(self, lat0, lon0, correction=False):
 
         self.acs = dict()
+        self.squawks = dict()
         self.__ehs_updated_acs = set()
         self.weather = None
 
         self.lat0 = lat0
         self.lon0 = lon0
-
+        
         self.mp = MeteoParticleModel(lat0, lon0)
 
         self.t = 0
         self.mp_t = 0
-
+        
+        self.correction = correction
+        
+        
     def process_raw(self, adsb_ts, adsb_msgs, ehs_ts, ehs_msgs, tnow=None):
         """process a chunk of adsb and ehs messages received in the same
         time period.
@@ -50,7 +63,14 @@ class Stream():
 
             if icao not in self.acs:
                 self.acs[icao] = {}
-
+                if self.correction:
+                    try:
+                        self.acs[icao]['magdev'] = acdb.loc[icao]['magdev']
+                    except: #no icao in database
+                        self.acs[icao]['magdev'] = 0
+                else:
+                    self.acs[icao]['magdev'] = 0
+            
             self.acs[icao]['t'] = t
 
             if 1 <= tc <= 4:
@@ -109,21 +129,61 @@ class Stream():
 
             if icao not in self.acs:
                 continue
+            
+            if self.correction:
+                # Check DF20
+                if pms.df(msg) == 20:
+                    alt_ehs = pms.altcode(msg)
+                    
+                    if ('alt' in self.acs[icao]) and (alt_ehs is not None):
+                        if abs(self.acs[icao]['alt'] - alt_ehs) > 250:
+                            continue
+                    else:
+                        # No ADS-B altitude yet, so no altitude comparision possible
+                        continue
+    
+                # Check DF21
+                if pms.df(msg) == 21:
+                    squawk = pms.idcode(msg)
+    
+                    if squawk not in self.squawks:
+                        self.squawks[squawk] = {}
+        
+                    if icao not in self.squawks[squawk]:
+                        self.squawks[squawk][icao] = {}
+                        self.squawks[squawk][icao]['count'] = 0
+                       
+                    self.squawks[squawk][icao]['count'] += 1
+                    self.squawks[squawk][icao]['ts'] = t
+    
+                    if self.squawks[squawk][icao]['count'] < 10: 
+                        # Reject if Squawk and ICAO combination has seen less than 10 times.
+                        continue
 
-            bds = pms.ehs.BDS(msg)
-
+            bds = pms.bds.infer(msg)
+            
+            if bds == 'BDS50,BDS60':
+                try:
+                    bds = pms.bds.is50or60(msg, self.acs[icao]['gs'], self.acs[icao]['trk'], self.acs[icao]['alt'])
+                except:
+                    pass
+            
             if bds == 'BDS50':
                 tas = pms.ehs.tas50(msg)
+                roll = pms.ehs.roll50(msg)
 
-                if tas:
+                if tas and roll:
                     self.acs[icao]['t50'] = t
                     self.acs[icao]['tas'] = tas
+                    self.acs[icao]['roll'] = roll
                     local_ehs_updated_acs_buffer.append(icao)
+
 
             elif bds == 'BDS60':
                 ias = pms.ehs.ias60(msg)
                 hdg = pms.ehs.hdg60(msg)
                 mach = pms.ehs.mach60(msg)
+                
 
                 if ias and hdg and mach:
                     self.acs[icao]['t60'] = t
@@ -149,6 +209,14 @@ class Stream():
                 del self.acs[icao]['mach']
 
         self.add_ehs_updated_aircraft(local_ehs_updated_acs_buffer)
+        
+        if self.correction:
+            for squawk in list(self.squawks):
+                for icao in list(self.squawks[squawk]):
+                    if self.t-self.squawks[squawk][icao]['ts'] > 300:
+                         del self.squawks[squawk][icao]
+    #                     print('deleted', squawk, icao)
+        
         return
 
     def compute_current_weather(self):
@@ -162,6 +230,7 @@ class Stream():
         trks = []
         vas = []
         hdgs = []
+        magdev = []
 
         update_acs = self.get_updated_aircraft()
 
@@ -173,15 +242,15 @@ class Stream():
                     ('t50' not in ac) or ('gs' not in ac):
                 continue
 
-            if (self.t - ac['tpos'] > 5) or (self.t - ac['t60'] > 5) or (self.t - ac['t50'] > 5):
-                continue
-
-            # print(ac)
-
+            if (self.t - ac['tpos'] > 5) or (self.t - ac['t60'] > 5) or (self.t - ac['t50'] > 5) or \
+                    (self.correction and ac['roll'] > 5):
+                   continue
+            
             h = ac['alt'] * aero.ft
             vtas  = ac['tas'] * aero.kts
             vias  = ac['ias'] * aero.kts
             mach = ac['mach']
+
 
             if h < 11000:
                 p = 101325 * (1 + (-0.0065*h)/288.15)**(-9.81/(-0.0065*287.05))
@@ -208,6 +277,7 @@ class Stream():
             trks.append(np.radians(ac['trk']))
             vas.append(va)
             hdgs.append(np.radians(ac['hdg']))
+            magdev.append(np.radians(ac['magdev']))
 
         if GEO_MAG_SUPPORT:
             d_hdgs = []
@@ -215,7 +285,7 @@ class Stream():
                 d_hdg = np.radians(geomag.declination(lats[i], lons[i], alts[i]))
                 d_hdgs.append(d_hdg)
 
-            hdgs = hdgs - np.array(d_hdgs)
+            hdgs = hdgs - np.array(d_hdgs) + magdev
 
         vgx = vgs * np.sin(trks)
         vgy = vgs * np.cos(trks)
@@ -241,7 +311,6 @@ class Stream():
         # return the new weather dataframe
         df_weather = pd.DataFrame.from_dict(self.weather)
         return df_weather if df_weather.shape[0]>0 else None
-
 
     def update_mp_model(self):
         self.mp.sample(self.weather)
