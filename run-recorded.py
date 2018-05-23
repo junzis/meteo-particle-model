@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # specify the receiver location, the example receiver is located at TU Delft
-stream = Stream(lat0=51.99, lon0=4.37)
+stream = Stream(lat0=51.99, lon0=4.37, correction=True)
 
 # you can set up the MP model parameters
 stream.mp.N_AC_PTCS = 500
