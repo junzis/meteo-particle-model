@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import time
@@ -17,12 +18,14 @@ except:
     print(('-' * 80))
     GEO_MAG_SUPPORT = False
 
+rootdir = os.path.dirname(os.path.realpath(__file__))
+
 # Aircraft database from https://junzisun.com/adb/data
-acdb = pd.read_csv('data/aircraft_db.csv', dtype=str)
+acdb = pd.read_csv(rootdir+'/data/aircraft_db.csv', dtype=str)
 acdb['icao'] = acdb['icao'].str.upper()
 acdb['mdl'] = acdb['mdl'].str.upper()
 
-magdev = pd.read_csv('data/BDS60_correction.csv')
+magdev = pd.read_csv(rootdir+'/data/BDS60_correction.csv')
 acdb = acdb.merge(magdev, on='mdl')
 acdb.set_index('icao', inplace=True)
 
@@ -36,15 +39,15 @@ class Stream():
 
         self.lat0 = lat0
         self.lon0 = lon0
-        
+
         self.mp = MeteoParticleModel(lat0, lon0)
 
         self.t = 0
         self.mp_t = 0
-        
+
         self.correction = correction
-        
-        
+
+
     def process_raw(self, adsb_ts, adsb_msgs, ehs_ts, ehs_msgs, tnow=None):
         """process a chunk of adsb and ehs messages received in the same
         time period.
@@ -70,7 +73,7 @@ class Stream():
                         self.acs[icao]['magdev'] = 0
                 else:
                     self.acs[icao]['magdev'] = 0
-            
+
             self.acs[icao]['t'] = t
 
             if 1 <= tc <= 4:
@@ -129,45 +132,45 @@ class Stream():
 
             if icao not in self.acs:
                 continue
-            
+
             if self.correction:
                 # Check DF20
                 if pms.df(msg) == 20:
                     alt_ehs = pms.altcode(msg)
-                    
+
                     if ('alt' in self.acs[icao]) and (alt_ehs is not None):
                         if abs(self.acs[icao]['alt'] - alt_ehs) > 250:
                             continue
                     else:
                         # No ADS-B altitude yet, so no altitude comparision possible
                         continue
-    
+
                 # Check DF21
                 if pms.df(msg) == 21:
                     squawk = pms.idcode(msg)
-    
+
                     if squawk not in self.squawks:
                         self.squawks[squawk] = {}
-        
+
                     if icao not in self.squawks[squawk]:
                         self.squawks[squawk][icao] = {}
                         self.squawks[squawk][icao]['count'] = 0
-                       
+
                     self.squawks[squawk][icao]['count'] += 1
                     self.squawks[squawk][icao]['ts'] = t
-    
-                    if self.squawks[squawk][icao]['count'] < 10: 
+
+                    if self.squawks[squawk][icao]['count'] < 10:
                         # Reject if Squawk and ICAO combination has seen less than 10 times.
                         continue
 
             bds = pms.bds.infer(msg)
-            
+
             if bds == 'BDS50,BDS60':
                 try:
                     bds = pms.bds.is50or60(msg, self.acs[icao]['gs'], self.acs[icao]['trk'], self.acs[icao]['alt'])
                 except:
                     pass
-            
+
             if bds == 'BDS50':
                 tas = pms.ehs.tas50(msg)
                 roll = pms.ehs.roll50(msg)
@@ -183,7 +186,7 @@ class Stream():
                 ias = pms.ehs.ias60(msg)
                 hdg = pms.ehs.hdg60(msg)
                 mach = pms.ehs.mach60(msg)
-                
+
 
                 if ias and hdg and mach:
                     self.acs[icao]['t60'] = t
@@ -209,14 +212,14 @@ class Stream():
                 del self.acs[icao]['mach']
 
         self.add_ehs_updated_aircraft(local_ehs_updated_acs_buffer)
-        
+
         if self.correction:
             for squawk in list(self.squawks):
                 for icao in list(self.squawks[squawk]):
                     if self.t-self.squawks[squawk][icao]['ts'] > 300:
                          del self.squawks[squawk][icao]
     #                     print('deleted', squawk, icao)
-        
+
         return
 
     def compute_current_weather(self):
@@ -245,7 +248,7 @@ class Stream():
             if (self.t - ac['tpos'] > 5) or (self.t - ac['t60'] > 5) or (self.t - ac['t50'] > 5) or \
                     (self.correction and ac['roll'] > 5):
                    continue
-            
+
             h = ac['alt'] * aero.ft
             vtas  = ac['tas'] * aero.kts
             vias  = ac['ias'] * aero.kts
