@@ -32,7 +32,7 @@ TNOW = 0
 TFLAG = 0
 
 STREAM = Stream(lat0=51.99, lon0=4.37)
-STREAM.mp.N_AC_PTCS = 500
+STREAM.mp.N_AC_PTCS = 250
 STREAM.mp.AGING_SIGMA = 180
 
 DATA_LOCK = threading.Lock()

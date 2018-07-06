@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 stream = Stream(lat0=51.99, lon0=4.37, correction=True)
 
 # you can set up the MP model parameters
-stream.mp.N_AC_PTCS = 500
+stream.mp.N_AC_PTCS = 250
 stream.mp.AGING_SIGMA = 180
 
 # read the message dumps

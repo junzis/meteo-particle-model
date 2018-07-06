@@ -61,7 +61,7 @@ class Stream():
 
         # process adsb message
         for t, msg in zip(adsb_ts, adsb_msgs):
-            icao = pms.adsb.icao(msg)
+            icao = pms.icao(msg)
             tc = pms.adsb.typecode(msg)
 
             if icao not in self.acs:
@@ -128,7 +128,7 @@ class Stream():
 
         # process ehs message
         for t, msg in zip(ehs_ts, ehs_msgs):
-            icao = pms.ehs.icao(msg)
+            icao = pms.icao(msg)
 
             if icao not in self.acs:
                 continue
@@ -172,8 +172,8 @@ class Stream():
                     pass
 
             if bds == 'BDS50':
-                tas = pms.ehs.tas50(msg)
-                roll = pms.ehs.roll50(msg)
+                tas = pms.commb.tas50(msg)
+                roll = pms.commb.roll50(msg)
 
                 if tas and roll:
                     self.acs[icao]['t50'] = t
@@ -183,9 +183,9 @@ class Stream():
 
 
             elif bds == 'BDS60':
-                ias = pms.ehs.ias60(msg)
-                hdg = pms.ehs.hdg60(msg)
-                mach = pms.ehs.mach60(msg)
+                ias = pms.commb.ias60(msg)
+                hdg = pms.commb.hdg60(msg)
+                mach = pms.commb.mach60(msg)
 
 
                 if ias and hdg and mach:

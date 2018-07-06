@@ -10,7 +10,7 @@ This is the Python library for wind field estimation based on the Meteo-Particle
 2. You may also install optional `geomag` library, to support the correction of magnetic declination in BDS60 heading.
 
 ```
-$ pip install pyModeS
+$ pip install git+https://github.com/junzis/pyModeS
 $ pip install geomag
 ```
 
