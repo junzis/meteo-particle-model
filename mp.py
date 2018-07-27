@@ -368,23 +368,15 @@ class MeteoParticleModel():
         return
 
 
-    def legacy_run(self, winds, tstart, tend, snapat=None, coords=None, debug=False):
-        bearings = aero.bearing(self.lat0, self.lon0, winds['lat'], winds['lon'])
-        distances = aero.distance(self.lat0, self.lon0, winds['lat'], winds['lon'])
-
-        winds['x'] = distances * np.sin(np.radians(bearings)) / 1000
-        winds['y'] = distances * np.cos(np.radians(bearings)) / 1000
-        winds['z'] = winds['alt'] * aero.ft / 1000
-
+    def legacy_run(self, winds, tstart, tend, snapat=None, coords=None, xyz=False, debug=False):
         for t in range(tstart, tend, 1):
-
             if debug:
                 if t % 30 == 0:
                     print('time:', t-tstart, '| particles:', len(self.PTC_X))
 
             if (snapat is not None) and (t > tstart):
                 if t in snapat:
-                    self.snapshots[t] = self.construct(coords=coords)
+                    self.snapshots[t] = self.construct(coords=coords, xyz=xyz)
                     dt = datetime.datetime.utcfromtimestamp(t).strftime("%Y-%m-%d %H:%M")
                     print("winds grid snapshot at %s (%d)" % (dt, t))
 
@@ -393,7 +385,10 @@ class MeteoParticleModel():
             self.sample(w)
 
 
-    def save_snapshot(self, t, coords=None, xyz=True):
+    def save_snapshot(self, t, coords=None, xyz=True, dir=None):
+        import os
+        thisdir = os.path.dirname(os.path.realpath(__file__))
+
         data = self.construct(coords=coords, xyz=xyz)
 
         x, y, z = data[0:3]
@@ -413,4 +408,12 @@ class MeteoParticleModel():
         df['temp'] = data[5]
         df['wind_confidence'] = data[6]
         df['temp_confidence'] = data[7]
-        df.to_csv('data/snapshots/snapshot_%s.csv' % t, index=False)
+
+        if dir is None:
+            fout = thisdir + '/data/snapshots/snapshot_%s.csv' % t
+        else:
+            fout = dir + '/snapshot_%s.csv' % t
+
+        df.to_csv(fout, index=False)
+
+        return fout
