@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 root = os.path.dirname(os.path.realpath(__file__))
-bg = plt.imread(root+"/extra/bg.png")
+bgimg = plt.imread(root+"/extra/bg.png")
 
 def plot_ac(mp, ax, zlevel):
     mask = (mp.AC_Z > zlevel-mp.GRID_BOND_Z) & (mp.AC_Z < zlevel+mp.GRID_BOND_Z)
@@ -55,21 +55,22 @@ def plot_particle_samples(mp, ax, zlevel, sample=10, draw_hdg=None):
     ax.set_aspect('equal')
 
 
-def plot_wind_grid_at_z(mp, ax, zlevel, data=None, barbs=False):
+def plot_wind_grid_at_z(mp, ax, zlevel, data=None, barbs=False, scale=1, showbg=True):
     xs, ys, zs, vxs, vys, temps, confws, confts = mp.construct() if data is None else data
 
     mask1 = (zs==zlevel) & np.isfinite(vxs)
     mask2 = (zs==zlevel) & np.isnan(vxs)
 
-    ax.imshow(bg, extent=[-300, 300, -300, 300])
+    if showbg:
+        ax.imshow(bgimg, extent=[-300, 300, -300, 300])
 
     ax.scatter(xs[mask1], ys[mask1], s=4, color='k')
     ax.scatter(xs[mask2], ys[mask2], s=4, color='grey', facecolors='none')
 
     if barbs:
-        ax.barbs(xs[mask1], ys[mask1], vxs[mask1], vys[mask1], length=5, lw=0.5)
+        ax.barbs(xs[mask1], ys[mask1], vxs[mask1], vys[mask1], length=5*scale, lw=1*scale)
     else:
-        ax.quiver(xs[mask1], ys[mask1], vxs[mask1]*0.7, vys[mask1]*0.7, color='k')
+        ax.quiver(xs[mask1], ys[mask1], vxs[mask1]*0.7*scale, vys[mask1]*0.7*scale, color='k')
 
     vmean = np.mean(np.sqrt(vxs[mask1]**2 + vys[mask1]**2))
     vmean = 0 if np.isnan(vmean) else vmean
@@ -100,7 +101,7 @@ def plot_wind_confidence(mp, ax, zlevel, data=None, nxy=None, colorbar=True):
         levels=np.linspace(0, 1, 10),
         # vmin=0, vmax=1,
         cmap=cm.get_cmap(cm.BuGn),
-        alpha=0.6
+        alpha=0.8
     )
 
     if colorbar:
@@ -109,7 +110,7 @@ def plot_wind_confidence(mp, ax, zlevel, data=None, nxy=None, colorbar=True):
 
     ax.set_aspect('equal')
 
-def plot_temperature_at_z(mp, ax, zlevel, data=None, nxy=None, colorbar=True):
+def plot_temperature_at_z(mp, ax, zlevel, data=None, nxy=None, colorbar=True, showbg=True):
     xs, ys, zs, vxs, vys, temps, confws, confts = mp.construct() if data is None else data
 
     temps = temps - 273.15
@@ -136,7 +137,8 @@ def plot_temperature_at_z(mp, ax, zlevel, data=None, nxy=None, colorbar=True):
     tmean = np.nanmean(temp)
     tmean = 'n/a' if np.isnan(tmean) else "%d C$^\circ$" % tmean
 
-    ax.imshow(bg, extent=[-300, 300, -300, 300])
+    if showbg:
+        ax.imshow(bgimg, extent=[-300, 300, -300, 300])
 
     ax.scatter(x, y, color=color)
     # ax.contourf(

@@ -115,7 +115,7 @@ class MeteoParticleModel():
         lscale = (b - a) * (l - np.min(l)) / (np.nanmax(l) - np.nanmin(l)) + a
         return lscale
 
-    def construct(self, coords=None, xyz=True, confidence=True):
+    def construct(self, coords=None, xyz=True, confidence=True, grids=10):
         if coords is not None:
             if xyz:
                 coords_xs, coords_ys, coords_zs = coords
@@ -129,8 +129,8 @@ class MeteoParticleModel():
                 coords_zs = np.asarray(alt) * aero.ft / 1000.0
 
         else:
-            xs = np.arange(self.AREA_XY[0], self.AREA_XY[1]+1, (self.AREA_XY[1]-self.AREA_XY[0])/10)
-            ys = np.arange(self.AREA_XY[0], self.AREA_XY[1]+1, (self.AREA_XY[1]-self.AREA_XY[0])/10)
+            xs = np.arange(self.AREA_XY[0], self.AREA_XY[1]+1, (self.AREA_XY[1]-self.AREA_XY[0])/grids)
+            ys = np.arange(self.AREA_XY[0], self.AREA_XY[1]+1, (self.AREA_XY[1]-self.AREA_XY[0])/grids)
             zs = np.linspace(self.AREA_Z[0]+1, self.AREA_Z[1], 12)
 
             xx, yy, zz = np.meshgrid(xs, ys, zs)
