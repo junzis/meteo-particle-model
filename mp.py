@@ -3,6 +3,8 @@ import numpy as np
 from lib import aero
 import datetime
 
+import matplotlib.pyplot as plt
+
 class MeteoParticleModel():
     def __init__(self, lat0, lon0, tstep=1):
         self.lat0 = lat0
@@ -76,13 +78,6 @@ class MeteoParticleModel():
 
         return np.where(mask)[0]
 
-
-    # def strength(self, mask):
-    #     """decaying factor of particles
-    #     """
-    #     ptc_ages = self.PTC_AGE[mask]
-    #     strength = np.exp(-1 * ptc_ages**2 / (2 * self.AGING_SIGMA**2))
-    #     return strength
 
     def ptc_weights(self, x0, y0, z0, mask):
         """particle weights are calculated as gaussian function
@@ -222,54 +217,68 @@ class MeteoParticleModel():
             np.array(coords_wx), np.array(coords_wy), np.array(coords_temp), \
             np.array(coords_w_confs), np.array(coords_t_confs)
 
+
     def prob_ac_accept(self):
 
-        n0 = n1 = len(self.AC_X)
+        n0 = len(self.AC_X)
+        probs = np.ones(n0)
 
-        if len(self.PTC_X) / self.N_AC_PTCS < 10:
-            mask = [True] * n0
+        XLo = self.AC_X - 100
+        XHi = self.AC_X + 100
+        YLo = self.AC_Y - 100
+        YHi = self.AC_Y + 100
+        ZLo = self.AC_Z - self.GRID_BOND_Z
+        ZHi = self.AC_Z + self.GRID_BOND_Z
 
-        else:
-            ZLo = self.AC_Z - self.GRID_BOND_Z
-            ZHi = self.AC_Z + self.GRID_BOND_Z
 
-            MU_WX = np.array([])
-            MU_WY = np.array([])
-            MU_TEMP = np.array([])
-            STD_WX = np.array([])
-            STD_WY = np.array([])
-            STD_TEMP = np.array([])
+        for i in range(n0):
+            acwx, acwy, actemp, xlo, xhi, ylo, yhi, zlo, zhi = \
+                self.AC_WX[i], self.AC_WX[i], self.AC_TEMP[i], \
+                XLo[i], XHi[i], YLo[i], YHi[i], ZLo[i], ZHi[i]
 
-            for zlo, zhi in zip(ZLo, ZHi):
-                m = (self.PTC_Z > zlo) & (self.PTC_Z < zhi)
-                MU_WX = np.append(MU_WX, np.mean(self.PTC_WX[m]))
-                MU_WY = np.append(MU_WY, np.mean(self.PTC_WY[m]))
-                STD_WX = np.append(STD_WX, np.std(self.PTC_WX[m]))
-                STD_WY = np.append(STD_WY, np.std(self.PTC_WY[m]))
+            mask_w_ptc = (self.PTC_X > xlo) & (self.PTC_X < xhi) \
+                & (self.PTC_Y > ylo) & (self.PTC_Y < yhi) \
+                & (self.PTC_Z > zlo) & (self.PTC_Z < zhi)
 
-                m2 = (self.PTC_Z0 > zlo) & (self.PTC_Z0 < zhi)
-                MU_TEMP = np.append(MU_TEMP, np.mean(self.PTC_TEMP[m2]))
-                STD_TEMP = np.append(STD_TEMP, np.std(self.PTC_TEMP[m2]))
+            mask_w_obs = (self.AC_X > xlo) & (self.AC_X < xhi) \
+                & (self.AC_Y > ylo) & (self.AC_Y < yhi) \
+                & (self.AC_Z > zlo) & (self.AC_Z < zhi)
 
-            mus = np.array([MU_WX, MU_WY, MU_TEMP]).T
-            stds = np.array([STD_WX, STD_WY, STD_TEMP]) * self.ACCEPT_PROB_FACTOR
-            cov = np.zeros((3, 3))
+            mu_wx = np.mean(self.PTC_WX[mask_w_ptc])
+            mu_wy = np.mean(self.PTC_WY[mask_w_ptc])
+            std_wx = np.std(self.PTC_WX[mask_w_ptc])
+            std_wy = np.std(self.PTC_WY[mask_w_ptc])
+
+            mask_temp = (self.PTC_Z0 > zlo) & (self.PTC_Z0 < zhi)
+            mu_temp = np.mean(self.PTC_TEMP[mask_temp])
+            std_temp = np.std(self.PTC_TEMP[mask_temp])
+
+            mus = np.matrix([[mu_wx, mu_wy, mu_temp]])
+            stds = np.array([std_wx, std_wy, std_temp]) * self.ACCEPT_PROB_FACTOR
+            cov = np.matrix(np.zeros((3, 3)))
             np.fill_diagonal(cov, stds**2)
-            x = np.array([self.AC_WX, self.AC_WY, self.AC_TEMP]).T
+            x = np.matrix([[acwx, acwy, actemp]])
+
+            # mus = np.matrix([[mu_wx, mu_wy]])
+            # stds = np.array([std_wx, std_wy]) * self.ACCEPT_PROB_FACTOR
+            # cov = np.matrix(np.zeros((2, 2)))
+            # np.fill_diagonal(cov, stds**2)
+            # x = np.matrix([[acwx, acwy]])
 
             try:
                 dx = x - mus
                 cov_inv = np.linalg.inv(cov)
-                prob= np.exp(-0.5 * np.einsum('ij,ij->i', np.dot(dx, cov_inv), dx))
-                # prob = np.exp(-0.5 * ((self.AC_WX-MU_WX)**2/((k*STD_WX)**2) + (self.AC_WY-MU_WY)**2/((k*STD_WY)**2)))
-                choice = np.random.random(len(prob))
-                mask =  prob > choice
-                mask[np.isnan(prob)] = True
+                prob = np.exp(-0.5 * dx * cov_inv * dx.T)
+
+                if not np.isnan(prob):
+                    probs[i] = prob[0, 0]
             except:
-                mask = [True] * n0
+                continue
 
-            # print([int(i) for i in mask])
+        # print(probs)
 
+        choices = np.random.random(n0)
+        mask = probs > choices
         self.AC_X = self.AC_X[mask]
         self.AC_Y = self.AC_Y[mask]
         self.AC_Z = self.AC_Z[mask]
@@ -281,7 +290,7 @@ class MeteoParticleModel():
         return n0, n1
 
 
-    def sample(self, weather):
+    def sample(self, weather, acceptprob=True):
         weather = pd.DataFrame(weather)
         bearings = aero.bearing(self.lat0, self.lon0, weather['lat'], weather['lon'])
         distances = aero.distance(self.lat0, self.lon0, weather['lat'], weather['lon'])
@@ -298,8 +307,8 @@ class MeteoParticleModel():
         self.AC_TEMP = np.asarray(weather['temp'])
 
         # add new particles
-        self.prob_ac_accept()
-
+        if acceptprob:
+            self.prob_ac_accept()
 
         n0 = len(self.PTC_X)
         n_new_ptc = len(self.AC_X) * self.N_AC_PTCS
@@ -391,7 +400,7 @@ class MeteoParticleModel():
 
         data = self.construct(coords=coords, xyz=xyz)
 
-        x, y, z = data[0:3]
+        y, x, z = data[0:3]
 
         distance = np.sqrt(x**2 + y**2) * 1000
         bearing = np.degrees(np.arctan2(x, y))
