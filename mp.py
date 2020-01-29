@@ -5,37 +5,37 @@ import datetime
 
 import matplotlib.pyplot as plt
 
-class MeteoParticleModel():
+
+class MeteoParticleModel:
     def __init__(self, lat0, lon0, tstep=1):
         self.lat0 = lat0
         self.lon0 = lon0
 
         self.tstep = tstep
 
-        self.AREA_XY = (-300, 300)           # Area - xy, km
-        self.AREA_Z = (0, 12)                # Altitude - km
+        self.AREA_XY = (-300, 300)  # Area - xy, km
+        self.AREA_Z = (0, 12)  # Altitude - km
 
-        self.GRID_BOND_XY = 20               # neighborhood xy, +/- km
-        self.GRID_BOND_Z = 0.5               # neighborhood z, +/- km
-        self.TEMP_Z_BUFFER = 0.2             # neighborhood z (temp),  +/- km
+        self.GRID_BOND_XY = 20  # neighborhood xy, +/- km
+        self.GRID_BOND_Z = 0.5  # neighborhood z, +/- km
+        self.TEMP_Z_BUFFER = 0.2  # neighborhood z (temp),  +/- km
 
-        self.N_AC_PTCS = 300                 # particles per aircraft
-        self.N_MIN_PTC_TO_COMPUTE = 10       # number of particles to compute
+        self.N_AC_PTCS = 300  # particles per aircraft
+        self.N_MIN_PTC_TO_COMPUTE = 10  # number of particles to compute
 
-        self.CONF_BOUND = (0.0, 1.0)         # confident normalization
+        self.CONF_BOUND = (0.0, 1.0)  # confident normalization
 
-        self.AGING_SIGMA = 180.0             # Particle aging parameter, seconds
+        self.AGING_SIGMA = 180.0  # Particle aging parameter, seconds
         self.PTC_DIST_STRENGTH_SIGMA = 30.0  # Weighting parameter - distance, km
-        self.PTC_WALK_XY_SIGMA = 5.0         # Particle random walk - xy, km
-        self.PTC_WALK_Z_SIGMA = 0.1          # Particle random walk - z, km
-        self.PTC_VW_VARY_SIGMA = 0.0002      # Particle initialization wind variation, km/s
-        self.PTC_TEMP_VARY_SIGMA = 0.1       # Particle initialization temp variation, K
+        self.PTC_WALK_XY_SIGMA = 5.0  # Particle random walk - xy, km
+        self.PTC_WALK_Z_SIGMA = 0.1  # Particle random walk - z, km
+        self.PTC_VW_VARY_SIGMA = 0.0002  # Particle initialization wind variation, km/s
+        self.PTC_TEMP_VARY_SIGMA = 0.1  # Particle initialization temp variation, K
 
-        self.ACCEPT_PROB_FACTOR = 3          # Measurement acceptance probability factor
-        self.PTC_WALK_K = 10                 # Particle random walk factor
+        self.ACCEPT_PROB_FACTOR = 3  # Measurement acceptance probability factor
+        self.PTC_WALK_K = 10  # Particle random walk factor
 
         self.reset_model()
-
 
     def reset_model(self):
         # aicraft
@@ -47,20 +47,19 @@ class MeteoParticleModel():
         self.AC_TEMP = np.array([])
 
         # particles
-        self.PTC_X = np.array([])            # current position of particles
+        self.PTC_X = np.array([])  # current position of particles
         self.PTC_Y = np.array([])
         self.PTC_Z = np.array([])
-        self.PTC_WX = np.array([])           # particles weather state
+        self.PTC_WX = np.array([])  # particles weather state
         self.PTC_WY = np.array([])
         self.PTC_TEMP = np.array([])
         self.PTC_AGE = np.array([])
-        self.PTC_X0 = np.array([])           # origin positions of particles
+        self.PTC_X0 = np.array([])  # origin positions of particles
         self.PTC_Y0 = np.array([])
         self.PTC_Z0 = np.array([])
 
         # misc.
         self.snapshots = {}
-
 
     def resample(self):
         mask1 = self.PTC_X > self.AREA_XY[0] - self.GRID_BOND_XY
@@ -70,14 +69,13 @@ class MeteoParticleModel():
         mask1 &= self.PTC_Z > self.AREA_Z[0]
         mask1 &= self.PTC_Z < self.AREA_Z[1]
 
-        prob = np.exp(-0.5 * self.PTC_AGE**2 / self.AGING_SIGMA**2)
+        prob = np.exp(-0.5 * self.PTC_AGE ** 2 / self.AGING_SIGMA ** 2)
         choice = np.random.random(len(self.PTC_X))
         mask2 = prob > choice
 
         mask = mask1 & mask2
 
         return np.where(mask)[0]
-
 
     def ptc_weights(self, x0, y0, z0, mask):
         """particle weights are calculated as gaussian function
@@ -92,11 +90,13 @@ class MeteoParticleModel():
         ptc_y0s = self.PTC_Y0[mask]
         ptc_z0s = self.PTC_Z0[mask]
 
-        d = np.sqrt((ptc_xs-x0)**2 + (ptc_ys-y0)**2 + (ptc_zs-z0)**2)
-        fd = np.exp(-1 * d**2 / (2 * self.PTC_DIST_STRENGTH_SIGMA**2))
+        d = np.sqrt((ptc_xs - x0) ** 2 + (ptc_ys - y0) ** 2 + (ptc_zs - z0) ** 2)
+        fd = np.exp(-1 * d ** 2 / (2 * self.PTC_DIST_STRENGTH_SIGMA ** 2))
 
-        ptc_d0s = np.sqrt((ptc_xs-ptc_x0s)**2 + (ptc_ys-ptc_y0s)**2 + (ptc_zs-ptc_z0s)**2)
-        fd0 = np.exp(-1 * ptc_d0s**2 / (2 * self.PTC_DIST_STRENGTH_SIGMA**2))
+        ptc_d0s = np.sqrt(
+            (ptc_xs - ptc_x0s) ** 2 + (ptc_ys - ptc_y0s) ** 2 + (ptc_zs - ptc_z0s) ** 2
+        )
+        fd0 = np.exp(-1 * ptc_d0s ** 2 / (2 * self.PTC_DIST_STRENGTH_SIGMA ** 2))
 
         weights = fd * fd0
 
@@ -116,17 +116,29 @@ class MeteoParticleModel():
                 coords_xs, coords_ys, coords_zs = coords
             else:
                 lat, lon, alt = coords
-                bearings = aero.bearing(self.lat0, self.lon0, np.asarray(lat), np.asarray(lon))
-                distances = aero.distance(self.lat0, self.lon0, np.asarray(lat), np.asarray(lon))
+                bearings = aero.bearing(
+                    self.lat0, self.lon0, np.asarray(lat), np.asarray(lon)
+                )
+                distances = aero.distance(
+                    self.lat0, self.lon0, np.asarray(lat), np.asarray(lon)
+                )
 
                 coords_xs = distances * np.sin(np.radians(bearings)) / 1000.0
                 coords_ys = distances * np.cos(np.radians(bearings)) / 1000.0
                 coords_zs = np.asarray(alt) * aero.ft / 1000.0
 
         else:
-            xs = np.arange(self.AREA_XY[0], self.AREA_XY[1]+1, (self.AREA_XY[1]-self.AREA_XY[0])/grids)
-            ys = np.arange(self.AREA_XY[0], self.AREA_XY[1]+1, (self.AREA_XY[1]-self.AREA_XY[0])/grids)
-            zs = np.linspace(self.AREA_Z[0]+1, self.AREA_Z[1], 12)
+            xs = np.arange(
+                self.AREA_XY[0],
+                self.AREA_XY[1] + 1,
+                (self.AREA_XY[1] - self.AREA_XY[0]) / grids,
+            )
+            ys = np.arange(
+                self.AREA_XY[0],
+                self.AREA_XY[1] + 1,
+                (self.AREA_XY[1] - self.AREA_XY[0]) / grids,
+            )
+            zs = np.linspace(self.AREA_Z[0] + 1, self.AREA_Z[1], 12)
 
             xx, yy, zz = np.meshgrid(xs, ys, zs)
             coords_xs = xx.flatten()
@@ -144,12 +156,20 @@ class MeteoParticleModel():
         coords_ptc_str = []
 
         for x, y, z in zip(coords_xs, coords_ys, coords_zs):
-            mask1 = (self.PTC_X > x - self.GRID_BOND_XY) & (self.PTC_X < x + self.GRID_BOND_XY) \
-                    & (self.PTC_Y > y - self.GRID_BOND_XY) & (self.PTC_Y < y + self.GRID_BOND_XY) \
-                    & (self.PTC_Z > z - self.GRID_BOND_Z) & (self.PTC_Z < z + self.GRID_BOND_Z) \
-
+            mask1 = (
+                (self.PTC_X > x - self.GRID_BOND_XY)
+                & (self.PTC_X < x + self.GRID_BOND_XY)
+                & (self.PTC_Y > y - self.GRID_BOND_XY)
+                & (self.PTC_Y < y + self.GRID_BOND_XY)
+                & (self.PTC_Z > z - self.GRID_BOND_Z)
+                & (self.PTC_Z < z + self.GRID_BOND_Z)
+            )
             # additional mask for temperature, only originated in similar level
-            mask2 = mask1 & (self.PTC_Z0 > z - self.TEMP_Z_BUFFER) & (self.PTC_Z0 < z + self.TEMP_Z_BUFFER)
+            mask2 = (
+                mask1
+                & (self.PTC_Z0 > z - self.TEMP_Z_BUFFER)
+                & (self.PTC_Z0 < z + self.TEMP_Z_BUFFER)
+            )
 
             n = len(self.PTC_X[mask1])
 
@@ -174,7 +194,9 @@ class MeteoParticleModel():
 
                 if confidence:
                     strs = 1 / (np.mean(self.PTC_AGE[mask1]) + 1e-100)
-                    w_hmgs = np.linalg.norm(np.cov([self.PTC_WX[mask1], self.PTC_WY[mask1]]))
+                    w_hmgs = np.linalg.norm(
+                        np.cov([self.PTC_WX[mask1], self.PTC_WY[mask1]])
+                    )
                     w_hmgs = 0 if np.isnan(w_hmgs) else w_hmgs
 
                     t_hmgs = np.std(self.PTC_TEMP[mask2])
@@ -213,10 +235,16 @@ class MeteoParticleModel():
             coords_w_confs = None
             coords_t_confs = None
 
-        return np.array(coords_xs), np.array(coords_ys), np.array(coords_zs), \
-            np.array(coords_wx), np.array(coords_wy), np.array(coords_temp), \
-            np.array(coords_w_confs), np.array(coords_t_confs)
-
+        return (
+            np.array(coords_xs),
+            np.array(coords_ys),
+            np.array(coords_zs),
+            np.array(coords_wx),
+            np.array(coords_wy),
+            np.array(coords_temp),
+            np.array(coords_w_confs),
+            np.array(coords_t_confs),
+        )
 
     def prob_ac_accept(self):
 
@@ -230,19 +258,36 @@ class MeteoParticleModel():
         ZLo = self.AC_Z - self.GRID_BOND_Z
         ZHi = self.AC_Z + self.GRID_BOND_Z
 
-
         for i in range(n0):
-            acwx, acwy, actemp, xlo, xhi, ylo, yhi, zlo, zhi = \
-                self.AC_WX[i], self.AC_WX[i], self.AC_TEMP[i], \
-                XLo[i], XHi[i], YLo[i], YHi[i], ZLo[i], ZHi[i]
+            acwx, acwy, actemp, xlo, xhi, ylo, yhi, zlo, zhi = (
+                self.AC_WX[i],
+                self.AC_WX[i],
+                self.AC_TEMP[i],
+                XLo[i],
+                XHi[i],
+                YLo[i],
+                YHi[i],
+                ZLo[i],
+                ZHi[i],
+            )
 
-            mask_w_ptc = (self.PTC_X > xlo) & (self.PTC_X < xhi) \
-                & (self.PTC_Y > ylo) & (self.PTC_Y < yhi) \
-                & (self.PTC_Z > zlo) & (self.PTC_Z < zhi)
+            mask_w_ptc = (
+                (self.PTC_X > xlo)
+                & (self.PTC_X < xhi)
+                & (self.PTC_Y > ylo)
+                & (self.PTC_Y < yhi)
+                & (self.PTC_Z > zlo)
+                & (self.PTC_Z < zhi)
+            )
 
-            mask_w_obs = (self.AC_X > xlo) & (self.AC_X < xhi) \
-                & (self.AC_Y > ylo) & (self.AC_Y < yhi) \
-                & (self.AC_Z > zlo) & (self.AC_Z < zhi)
+            mask_w_obs = (
+                (self.AC_X > xlo)
+                & (self.AC_X < xhi)
+                & (self.AC_Y > ylo)
+                & (self.AC_Y < yhi)
+                & (self.AC_Z > zlo)
+                & (self.AC_Z < zhi)
+            )
 
             mu_wx = np.mean(self.PTC_WX[mask_w_ptc])
             mu_wy = np.mean(self.PTC_WY[mask_w_ptc])
@@ -256,7 +301,7 @@ class MeteoParticleModel():
             mus = np.matrix([[mu_wx, mu_wy, mu_temp]])
             stds = np.array([std_wx, std_wy, std_temp]) * self.ACCEPT_PROB_FACTOR
             cov = np.matrix(np.zeros((3, 3)))
-            np.fill_diagonal(cov, stds**2)
+            np.fill_diagonal(cov, stds ** 2)
             x = np.matrix([[acwx, acwy, actemp]])
 
             # mus = np.matrix([[mu_wx, mu_wy]])
@@ -289,22 +334,21 @@ class MeteoParticleModel():
 
         return n0, n1
 
-
     def sample(self, weather, acceptprob=True):
         weather = pd.DataFrame(weather)
-        bearings = aero.bearing(self.lat0, self.lon0, weather['lat'], weather['lon'])
-        distances = aero.distance(self.lat0, self.lon0, weather['lat'], weather['lon'])
+        bearings = aero.bearing(self.lat0, self.lon0, weather["lat"], weather["lon"])
+        distances = aero.distance(self.lat0, self.lon0, weather["lat"], weather["lon"])
 
-        weather.loc[:, 'x'] = distances * np.sin(np.radians(bearings)) / 1000.0
-        weather.loc[:, 'y'] = distances * np.cos(np.radians(bearings)) / 1000.0
-        weather.loc[:, 'z'] = weather['alt'] * aero.ft / 1000.0
+        weather.loc[:, "x"] = distances * np.sin(np.radians(bearings)) / 1000.0
+        weather.loc[:, "y"] = distances * np.cos(np.radians(bearings)) / 1000.0
+        weather.loc[:, "z"] = weather["alt"] * aero.ft / 1000.0
 
-        self.AC_X = np.asarray(weather['x'])
-        self.AC_Y = np.asarray(weather['y'])
-        self.AC_Z = np.asarray(weather['z'])
-        self.AC_WX = np.asarray(weather['wx'])
-        self.AC_WY = np.asarray(weather['wy'])
-        self.AC_TEMP = np.asarray(weather['temp'])
+        self.AC_X = np.asarray(weather["x"])
+        self.AC_Y = np.asarray(weather["y"])
+        self.AC_Z = np.asarray(weather["z"])
+        self.AC_WX = np.asarray(weather["wx"])
+        self.AC_WY = np.asarray(weather["wy"])
+        self.AC_TEMP = np.asarray(weather["temp"])
 
         # add new particles
         if acceptprob:
@@ -326,38 +370,44 @@ class MeteoParticleModel():
         self.PTC_Y0 = np.append(self.PTC_Y0, np.zeros(n_new_ptc))
         self.PTC_Z0 = np.append(self.PTC_Z0, np.zeros(n_new_ptc))
 
-        px = np.random.normal(0, self.PTC_WALK_XY_SIGMA/2, n_new_ptc)
-        py = np.random.normal(0, self.PTC_WALK_XY_SIGMA/2, n_new_ptc)
-        pz = np.random.normal(0, self.PTC_WALK_Z_SIGMA/2, n_new_ptc)
+        px = np.random.normal(0, self.PTC_WALK_XY_SIGMA / 2, n_new_ptc)
+        py = np.random.normal(0, self.PTC_WALK_XY_SIGMA / 2, n_new_ptc)
+        pz = np.random.normal(0, self.PTC_WALK_Z_SIGMA / 2, n_new_ptc)
 
         pwx = np.random.normal(0, self.PTC_VW_VARY_SIGMA, n_new_ptc)
         pwy = np.random.normal(0, self.PTC_VW_VARY_SIGMA, n_new_ptc)
         ptemp = np.random.normal(0, self.PTC_TEMP_VARY_SIGMA, n_new_ptc)
 
-        for i, (x, y, z, wx, wy, temp) in enumerate(zip(self.AC_X, self.AC_Y, self.AC_Z, self.AC_WX, self.AC_WY, self.AC_TEMP)):
-            idx0 = i*self.N_AC_PTCS
-            idx1 = (i+1) * self.N_AC_PTCS
+        for i, (x, y, z, wx, wy, temp) in enumerate(
+            zip(self.AC_X, self.AC_Y, self.AC_Z, self.AC_WX, self.AC_WY, self.AC_TEMP)
+        ):
+            idx0 = i * self.N_AC_PTCS
+            idx1 = (i + 1) * self.N_AC_PTCS
 
-            self.PTC_X[n0+idx0:n0+idx1] = x + px[idx0:idx1]
-            self.PTC_Y[n0+idx0:n0+idx1] = y + py[idx0:idx1]
-            self.PTC_Z[n0+idx0:n0+idx1] = z + pz[idx0:idx1]
+            self.PTC_X[n0 + idx0 : n0 + idx1] = x + px[idx0:idx1]
+            self.PTC_Y[n0 + idx0 : n0 + idx1] = y + py[idx0:idx1]
+            self.PTC_Z[n0 + idx0 : n0 + idx1] = z + pz[idx0:idx1]
 
-            self.PTC_WX[n0+idx0:n0+idx1] = wx + pwx[idx0:idx1]
-            self.PTC_WY[n0+idx0:n0+idx1] = wy + pwy[idx0:idx1]
-            self.PTC_TEMP[n0+idx0:n0+idx1] = temp + ptemp[idx0:idx1]
-            self.PTC_AGE[n0+idx0:n0+idx1] = np.zeros(self.N_AC_PTCS)
+            self.PTC_WX[n0 + idx0 : n0 + idx1] = wx + pwx[idx0:idx1]
+            self.PTC_WY[n0 + idx0 : n0 + idx1] = wy + pwy[idx0:idx1]
+            self.PTC_TEMP[n0 + idx0 : n0 + idx1] = temp + ptemp[idx0:idx1]
+            self.PTC_AGE[n0 + idx0 : n0 + idx1] = np.zeros(self.N_AC_PTCS)
 
-            self.PTC_X0[n0+idx0:n0+idx1] = x * np.ones(self.N_AC_PTCS)
-            self.PTC_Y0[n0+idx0:n0+idx1] = y * np.ones(self.N_AC_PTCS)
-            self.PTC_Z0[n0+idx0:n0+idx1] = z * np.ones(self.N_AC_PTCS)
+            self.PTC_X0[n0 + idx0 : n0 + idx1] = x * np.ones(self.N_AC_PTCS)
+            self.PTC_Y0[n0 + idx0 : n0 + idx1] = y * np.ones(self.N_AC_PTCS)
+            self.PTC_Z0[n0 + idx0 : n0 + idx1] = z * np.ones(self.N_AC_PTCS)
 
         # update existing particles, random walk motion model
         n1 = len(self.PTC_X)
         if n1 > 0:
             ex = np.random.normal(0, self.PTC_WALK_XY_SIGMA, n1)
             ey = np.random.normal(0, self.PTC_WALK_XY_SIGMA, n1)
-            self.PTC_X = self.PTC_X + self.PTC_WALK_K * self.PTC_WX/1000.0 * self.tstep + ex     # 1/1000 m/s -> km/s
-            self.PTC_Y = self.PTC_Y + self.PTC_WALK_K * self.PTC_WY/1000.0 * self.tstep + ey
+            self.PTC_X = (
+                self.PTC_X + self.PTC_WALK_K * self.PTC_WX / 1000.0 * self.tstep + ex
+            )  # 1/1000 m/s -> km/s
+            self.PTC_Y = (
+                self.PTC_Y + self.PTC_WALK_K * self.PTC_WY / 1000.0 * self.tstep + ey
+            )
             self.PTC_Z = self.PTC_Z + np.random.normal(0, self.PTC_WALK_Z_SIGMA, n1)
             self.PTC_AGE = self.PTC_AGE + self.tstep
 
@@ -376,52 +426,55 @@ class MeteoParticleModel():
 
         return
 
-
-    def legacy_run(self, winds, tstart, tend, snapat=None, coords=None, xyz=False, debug=False):
+    def legacy_run(
+        self, winds, tstart, tend, snapat=None, coords=None, xyz=False, debug=False
+    ):
         for t in range(tstart, tend, 1):
             if debug:
                 if t % 30 == 0:
-                    print('time:', t-tstart, '| particles:', len(self.PTC_X))
+                    print("time:", t - tstart, "| particles:", len(self.PTC_X))
 
             if (snapat is not None) and (t > tstart):
                 if t in snapat:
                     self.snapshots[t] = self.construct(coords=coords, xyz=xyz)
-                    dt = datetime.datetime.utcfromtimestamp(t).strftime("%Y-%m-%d %H:%M")
+                    dt = datetime.datetime.utcfromtimestamp(t).strftime(
+                        "%Y-%m-%d %H:%M"
+                    )
                     print("winds grid snapshot at %s (%d)" % (dt, t))
 
-            w = winds[winds.ts.astype(int)==t]
+            w = winds[winds.ts.astype(int) == t]
 
             self.sample(w)
 
-
     def save_snapshot(self, t, coords=None, xyz=True, dir=None):
         import os
+
         thisdir = os.path.dirname(os.path.realpath(__file__))
 
         data = self.construct(coords=coords, xyz=xyz)
 
         y, x, z = data[0:3]
 
-        distance = np.sqrt(x**2 + y**2) * 1000
+        distance = np.sqrt(x ** 2 + y ** 2) * 1000
         bearing = np.degrees(np.arctan2(x, y))
 
         lat1, lon1 = aero.position(self.lat0, self.lon0, distance, bearing)
         alt1 = z * 1000 / aero.ft
 
         df = pd.DataFrame()
-        df['lat'] = lat1
-        df['lon'] = lon1
-        df['alt'] = alt1
-        df['windx'] = data[3]
-        df['windy'] = data[4]
-        df['temp'] = data[5]
-        df['wind_confidence'] = data[6]
-        df['temp_confidence'] = data[7]
+        df["lat"] = lat1
+        df["lon"] = lon1
+        df["alt"] = alt1
+        df["windx"] = data[3]
+        df["windy"] = data[4]
+        df["temp"] = data[5]
+        df["wind_confidence"] = data[6]
+        df["temp_confidence"] = data[7]
 
         if dir is None:
-            fout = thisdir + '/data/snapshots/snapshot_%s.csv' % t
+            fout = thisdir + "/data/snapshots/snapshot_%s.csv" % t
         else:
-            fout = dir + '/snapshot_%s.csv' % t
+            fout = dir + "/snapshot_%s.csv" % t
 
         df.to_csv(fout, index=False)
 

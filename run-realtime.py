@@ -17,8 +17,8 @@ import mp_vis
 from stream import Stream
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--server', help='server address or IP', required=True)
-parser.add_argument('--port', help='Raw beast port', required=True)
+parser.add_argument("--server", help="server address or IP", required=True)
+parser.add_argument("--port", help="Raw beast port", required=True)
 args = parser.parse_args()
 server = args.server
 port = int(args.port)
@@ -39,6 +39,7 @@ DATA_LOCK = threading.Lock()
 
 root = os.path.dirname(os.path.realpath(__file__))
 
+
 class PwmBeastClient(client.BaseClient):
     def __init__(self, host, port):
         super(PwmBeastClient, self).__init__(host, port)
@@ -52,7 +53,7 @@ class PwmBeastClient(client.BaseClient):
         global TFLAG
 
         for msg, ts in messages:
-            if len(msg) != 28:           # wrong data length
+            if len(msg) != 28:  # wrong data length
                 continue
 
             df = pms.df(msg)
@@ -78,7 +79,6 @@ def gen_plot():
         if TFLAG >= 15:
             print("updating plot...")
 
-
             DATA_LOCK.acquire()
             data = STREAM.mp.construct()
             DATA_LOCK.release()
@@ -86,14 +86,18 @@ def gen_plot():
             tstr = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(TNOW))
 
             plt.figure(figsize=(12, 9))
-            mp_vis.plot_all_level_wind(STREAM.mp, data=data, return_plot=True, landscape_view=True, barbs=False)
-            plt.suptitle('Current wind field (UTC %s)' % tstr)
-            plt.savefig(root+'/data/screenshots/nowfield_wind.png')
+            mp_vis.plot_all_level_wind(
+                STREAM.mp, data=data, return_plot=True, landscape_view=True, barbs=False
+            )
+            plt.suptitle("Current wind field (UTC %s)" % tstr)
+            plt.savefig(root + "/data/screenshots/nowfield_wind.png")
 
             plt.figure(figsize=(12, 9))
-            mp_vis.plot_all_level_temp(STREAM.mp, data=data, return_plot=True, landscape_view=True)
-            plt.suptitle('Current temperature field (UTC %s)' % tstr)
-            plt.savefig(root+'/data/screenshots/nowfield_temp.png')
+            mp_vis.plot_all_level_temp(
+                STREAM.mp, data=data, return_plot=True, landscape_view=True
+            )
+            plt.suptitle("Current temperature field (UTC %s)" % tstr)
+            plt.savefig(root + "/data/screenshots/nowfield_temp.png")
 
             TFLAG = 0
         time.sleep(0.2)
@@ -112,7 +116,7 @@ def update_mp():
             time.sleep(0.1)
             continue
 
-        t = EHS_TS[-1]             # last timestamp
+        t = EHS_TS[-1]  # last timestamp
 
         if t - TNOW > 1:
             TNOW = int(t)
@@ -128,7 +132,7 @@ def update_mp():
             EHS_TS = []
             EHS_MSGS = []
 
-            print("time: %d | n_ptc: %d"  % (TNOW, len(STREAM.mp.PTC_X)))
+            print("time: %d | n_ptc: %d" % (TNOW, len(STREAM.mp.PTC_X)))
         else:
             time.sleep(0.1)
 
