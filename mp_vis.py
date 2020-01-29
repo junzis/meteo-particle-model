@@ -5,28 +5,33 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 root = os.path.dirname(os.path.realpath(__file__))
-bgimg = plt.imread(root+"/extra/bg.png")
+bgimg = plt.imread(root + "/extra/bg.png")
+
 
 def plot_ac(mp, ax, zlevel):
-    mask = (mp.AC_Z > zlevel-mp.GRID_BOND_Z) & (mp.AC_Z < zlevel+mp.GRID_BOND_Z)
+    mask = (mp.AC_Z > zlevel - mp.GRID_BOND_Z) & (mp.AC_Z < zlevel + mp.GRID_BOND_Z)
 
     if len(mp.AC_X[mask]) < 2:
         return
 
-    for i, (x, y, vx, vy) in enumerate(zip(mp.AC_X[mask], mp.AC_Y[mask], mp.AC_WX[mask], mp.AC_WY[mask])):
+    for i, (x, y, vx, vy) in enumerate(
+        zip(mp.AC_X[mask], mp.AC_Y[mask], mp.AC_WX[mask], mp.AC_WY[mask])
+    ):
 
-        ax.scatter(x, y, c='k')
-        ax.arrow(x, y, vx/3, vy/3, lw=2, head_width=10, head_length=10,
-                 ec='k', fc='k')
+        ax.scatter(x, y, c="k")
+        ax.arrow(
+            x, y, vx / 3, vy / 3, lw=2, head_width=10, head_length=10, ec="k", fc="k"
+        )
         # cir = plt.Circle((x, y), radius=np.sqrt(AREA*0.8),
         #                  color='k', fc='none', ls='--', lw=2)
         # ax.add_patch(cir)
     ax.set_xlim(mp.AREA_XY)
     ax.set_ylim(mp.AREA_XY)
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
+
 
 def plot_particle_samples(mp, ax, zlevel, sample=10, draw_hdg=None):
-    mask = (mp.PTC_Z > zlevel-mp.GRID_BOND_Z) & (mp.PTC_Z < zlevel+mp.GRID_BOND_Z)
+    mask = (mp.PTC_Z > zlevel - mp.GRID_BOND_Z) & (mp.PTC_Z < zlevel + mp.GRID_BOND_Z)
 
     if len(mp.PTC_X[mask]) < 2:
         return
@@ -40,50 +45,61 @@ def plot_particle_samples(mp, ax, zlevel, sample=10, draw_hdg=None):
     ages = mp.PTC_AGE[mask][::sample][sortidx]
 
     if max(ages) == min(ages):
-        Color = 'gray'
+        Color = "gray"
     else:
-        Color = cm.Blues(1 + 0.2 - (ages-min(ages))/(max(ages)-min(ages)))
+        Color = cm.Blues(1 + 0.2 - (ages - min(ages)) / (max(ages) - min(ages)))
 
     ax.scatter(xs, ys, s=3, color=Color)
 
     if draw_hdg:
         for i, (x, y, vx, vy) in enumerate(zip(xs, ys, vxs, vys)):
-            ax.plot([x, x+vx/2], [y, y+vy/2], color='k', alpha=0.5, lw=1)
+            ax.plot([x, x + vx / 2], [y, y + vy / 2], color="k", alpha=0.5, lw=1)
 
     ax.set_xlim(mp.AREA_XY)
     ax.set_ylim(mp.AREA_XY)
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
 
 
 def plot_wind_grid_at_z(mp, ax, zlevel, data=None, barbs=False, scale=1, showbg=True):
-    xs, ys, zs, vxs, vys, temps, confws, confts = mp.construct() if data is None else data
+    xs, ys, zs, vxs, vys, temps, confws, confts = (
+        mp.construct() if data is None else data
+    )
 
-    mask1 = (zs==zlevel) & np.isfinite(vxs)
-    mask2 = (zs==zlevel) & np.isnan(vxs)
+    mask1 = (zs == zlevel) & np.isfinite(vxs)
+    mask2 = (zs == zlevel) & np.isnan(vxs)
 
     if showbg:
         ax.imshow(bgimg, extent=[-300, 300, -300, 300])
 
-    ax.scatter(xs[mask1], ys[mask1], s=4, color='k')
-    ax.scatter(xs[mask2], ys[mask2], s=4, color='grey', facecolors='none')
+    ax.scatter(xs[mask1], ys[mask1], s=4, color="k")
+    ax.scatter(xs[mask2], ys[mask2], s=4, color="grey", facecolors="none")
 
     if barbs:
-        ax.barbs(xs[mask1], ys[mask1], vxs[mask1], vys[mask1], length=5*scale, lw=1*scale)
+        ax.barbs(
+            xs[mask1], ys[mask1], vxs[mask1], vys[mask1], length=5 * scale, lw=1 * scale
+        )
     else:
-        ax.quiver(xs[mask1], ys[mask1], vxs[mask1]*0.7*scale, vys[mask1]*0.7*scale, color='k')
+        ax.quiver(
+            xs[mask1],
+            ys[mask1],
+            vxs[mask1] * 0.7 * scale,
+            vys[mask1] * 0.7 * scale,
+            color="k",
+        )
 
-    vmean = np.mean(np.sqrt(vxs[mask1]**2 + vys[mask1]**2))
+    vmean = np.mean(np.sqrt(vxs[mask1] ** 2 + vys[mask1] ** 2))
     vmean = 0 if np.isnan(vmean) else vmean
 
-    ax.set_aspect('equal')
-    ax.set_title('H: %d km | $\\bar v_w$: %d m/s' % (zlevel, vmean),
-                 fontsize=10)
+    ax.set_aspect("equal")
+    ax.set_title("H: %d km | $\\bar v_w$: %d m/s" % (zlevel, vmean), fontsize=10)
 
 
 def plot_wind_confidence(mp, ax, zlevel, data=None, nxy=None, colorbar=True):
-    xs, ys, zs, vxs, vys, temps, confws, confts = mp.construct() if data is None else data
+    xs, ys, zs, vxs, vys, temps, confws, confts = (
+        mp.construct() if data is None else data
+    )
 
-    mask = (zs==zlevel)
+    mask = zs == zlevel
 
     x = xs[mask]
     y = ys[mask]
@@ -101,23 +117,28 @@ def plot_wind_confidence(mp, ax, zlevel, data=None, nxy=None, colorbar=True):
         levels=np.linspace(0, 1, 10),
         # vmin=0, vmax=1,
         cmap=cm.get_cmap(cm.BuGn),
-        alpha=0.8
+        alpha=0.8,
     )
 
     if colorbar:
         CB = plt.colorbar(CSw, fraction=0.046, pad=0.01)
         CB.set_ticks(np.linspace(0, 1, 10), update_ticks=True)
 
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
 
-def plot_temperature_at_z(mp, ax, zlevel, data=None, nxy=None, colorbar=True, showbg=True):
-    xs, ys, zs, vxs, vys, temps, confws, confts = mp.construct() if data is None else data
+
+def plot_temperature_at_z(
+    mp, ax, zlevel, data=None, nxy=None, colorbar=True, showbg=True
+):
+    xs, ys, zs, vxs, vys, temps, confws, confts = (
+        mp.construct() if data is None else data
+    )
 
     temps = temps - 273.15
     tmin = np.nanmean(temps)
     tmax = np.nanmax(temps)
 
-    mask = (zs==zlevel)
+    mask = zs == zlevel
 
     x = xs[mask]
     y = ys[mask]
@@ -130,12 +151,12 @@ def plot_temperature_at_z(mp, ax, zlevel, data=None, nxy=None, colorbar=True, sh
         nx, ny = nxy
 
     norm = matplotlib.colors.Normalize(vmin=tmin, vmax=tmax)
-    color_map = cm.get_cmap('jet')
+    color_map = cm.get_cmap("jet")
     color = color_map(norm(temp))
-    color[np.isnan(temp)] = (1,1,1,1)
+    color[np.isnan(temp)] = (1, 1, 1, 1)
 
     tmean = np.nanmean(temp)
-    tmean = 'n/a' if np.isnan(tmean) else "%d C$^\circ$" % tmean
+    tmean = "n/a" if np.isnan(tmean) else "%d C$^\circ$" % tmean
 
     if showbg:
         ax.imshow(bgimg, extent=[-300, 300, -300, 300])
@@ -148,12 +169,19 @@ def plot_temperature_at_z(mp, ax, zlevel, data=None, nxy=None, colorbar=True, sh
     #     cmap=cm.get_cmap(cm.Reds),
     #     alpha=0.6
     # )
-    ax.set_aspect('equal')
-    ax.set_title('H: %d km | $\\bar T$: %s' % (zlevel, tmean),
-                 fontsize=10)
+    ax.set_aspect("equal")
+    ax.set_title("H: %d km | $\\bar T$: %s" % (zlevel, tmean), fontsize=10)
 
 
-def plot_all_level_wind(mp, data=None, nxy=None, return_plot=False, landscape_view=False, barbs=False):
+def plot_all_level_wind(
+    mp,
+    data=None,
+    nxy=None,
+    return_plot=False,
+    landscape_view=False,
+    barbs=False,
+    showbg=True,
+):
     if data is None:
         data = mp.construct()
 
@@ -162,11 +190,11 @@ def plot_all_level_wind(mp, data=None, nxy=None, return_plot=False, landscape_vi
 
     for i, z in enumerate(zlevels):
         if landscape_view:
-            ax = plt.subplot(n, n+1, i+1)
+            ax = plt.subplot(n, n + 1, i + 1)
         else:
-            ax = plt.subplot(n+1, n, i+1)
+            ax = plt.subplot(n + 1, n, i + 1)
         plot_wind_confidence(mp, ax, z, data=data, nxy=nxy, colorbar=False)
-        plot_wind_grid_at_z(mp, ax, z, data=data, barbs=barbs)
+        plot_wind_grid_at_z(mp, ax, z, data=data, barbs=barbs, showbg=showbg)
         ax.set_xticks([])
         ax.set_yticks([])
 
@@ -176,7 +204,10 @@ def plot_all_level_wind(mp, data=None, nxy=None, return_plot=False, landscape_vi
     else:
         return plt
 
-def plot_all_level_temp(mp, data=None, nxy=None, return_plot=False, landscape_view=False):
+
+def plot_all_level_temp(
+    mp, data=None, nxy=None, return_plot=False, landscape_view=False
+):
     if data is None:
         data = mp.construct()
 
@@ -185,9 +216,9 @@ def plot_all_level_temp(mp, data=None, nxy=None, return_plot=False, landscape_vi
 
     for i, z in enumerate(zlevels):
         if landscape_view:
-            ax = plt.subplot(n, n+1, i+1)
+            ax = plt.subplot(n, n + 1, i + 1)
         else:
-            ax = plt.subplot(n+1, n, i+1)
+            ax = plt.subplot(n + 1, n, i + 1)
         plot_temperature_at_z(mp, ax, z, data=data, nxy=nxy, colorbar=False)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -198,21 +229,34 @@ def plot_all_level_temp(mp, data=None, nxy=None, return_plot=False, landscape_vi
     else:
         return plt
 
+
 def draw_map():
     from mpl_toolkits.basemap import Basemap
+
     lat0 = 51.989884
     lon0 = 4.375374
-    m = Basemap(width=600000, height=600000, resolution='i',
-                projection='stere', lat_0=lat0, lon_0=lon0)
-    m.drawcoastlines(color='grey', linewidth=1)
-    m.drawcountries(color='grey', linewidth=1)
-    m.fillcontinents(color='#eeeeee')
+    m = Basemap(
+        width=600000,
+        height=600000,
+        resolution="i",
+        projection="stere",
+        lat_0=lat0,
+        lon_0=lon0,
+    )
+    m.drawcoastlines(color="grey", linewidth=1)
+    m.drawcountries(color="grey", linewidth=1)
+    m.fillcontinents(color="#eeeeee")
     plt.show()
 
 
 def gpr(res):
     from sklearn.gaussian_process import GaussianProcessRegressor
-    from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel, Matern
+    from sklearn.gaussian_process.kernels import (
+        RBF,
+        WhiteKernel,
+        ConstantKernel,
+        Matern,
+    )
 
     xs, ys, zs, data = res
 
@@ -230,10 +274,11 @@ def gpr(res):
         for i in range(3):
             y = Y[:, i]
 
-            k = ConstantKernel() \
-                + 10**2 * RBF(length_scale=10.0, length_scale_bounds=(10.0, 100.0)) \
+            k = (
+                ConstantKernel()
+                + 10 ** 2 * RBF(length_scale=10.0, length_scale_bounds=(10.0, 100.0))
                 + WhiteKernel(noise_level_bounds=(nlows[i], 20.0))
-
+            )
 
             gpr = GaussianProcessRegressor(kernel=k)
             gpr.fit(X, y)
@@ -241,11 +286,12 @@ def gpr(res):
 
             y_pred, y_std = gpr.predict(X_, return_std=True)
 
-            plt.subplot(3, 1, i+1)
-            plt.scatter(X, y, c='k', s=5)
+            plt.subplot(3, 1, i + 1)
+            plt.scatter(X, y, c="k", s=5)
             plt.plot(X_, y_pred)
-            plt.fill_between(X_[:, 0], y_pred - y_std, y_pred + y_std,
-                             alpha=0.5, color='k')
+            plt.fill_between(
+                X_[:, 0], y_pred - y_std, y_pred + y_std, alpha=0.5, color="k"
+            )
             plt.xlim(X_.min(), X_.max())
             plt.tight_layout()
         plt.draw()
