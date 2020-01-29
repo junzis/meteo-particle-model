@@ -453,7 +453,7 @@ class MeteoParticleModel:
 
         data = self.construct(coords=coords, xyz=xyz)
 
-        y, x, z = data[0:3]
+        x, y, z = data[0:3]
 
         distance = np.sqrt(x ** 2 + y ** 2) * 1000
         bearing = np.degrees(np.arctan2(x, y))
