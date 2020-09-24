@@ -1,9 +1,8 @@
 # Meteo-Particle model for wind and temperature field construction using Mode-S data
 
-This is the Python (version 3) library for wind field estimation based on the Meteo-Particle particle model. The wind and temperature is computed from ADS-B and Mode-S data using pyModeS library.
+This repository is a Python library for wind field estimation based on the Meteo-Particle particle model. The wind and temperature are computed from ADS-B and Mode-S data using the pyModeS library.
 
-
-This tool was developed together with the following research paper. If you find it useful for your research, please consider citing:
+This tool was developed together with [a research paper](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0205029) by Junzi Sun and his colleagues at TU Delft CNA/ATM research group. If you find it useful for your research, please consider citing it as:
 
 ```
 @article{sun2018mp,
@@ -22,8 +21,8 @@ This tool was developed together with the following research paper. If you find 
 
 ## Dependent libraries
 
-1. You must install [`pyModeS`](https://github.com/junzis/pyModeS) library for ADS-B and Mode-S decoding.
-2. You also need the following common scientific libraries: `numpy`, `pandas`, and `matplotlib`.
+1. You need to install [`pyModeS`](https://github.com/junzis/pyModeS) library for ADS-B and Mode-S decoding.
+2. You also need to install the following common scientific libraries: `numpy`, `pandas`, and `matplotlib`.
 3. You may install optional `geomag` library, to support the correction of magnetic declination in BDS60 heading.
 
 For a fresh install, run following commands:
