@@ -5,6 +5,10 @@ import datetime
 
 import matplotlib.pyplot as plt
 
+import warnings
+
+warnings.simplefilter("ignore")
+
 
 class MeteoParticleModel:
     def __init__(self, lat0, lon0, tstep=1):
@@ -103,8 +107,7 @@ class MeteoParticleModel:
         return weights
 
     def scaled_confidence(self, l):
-        """kernel function to scale confidence values
-        """
+        """kernel function to scale confidence values"""
         a, b = self.CONF_BOUND
         l = np.array(l)
         lscale = (b - a) * (l - np.min(l)) / (np.nanmax(l) - np.nanmin(l)) + a
