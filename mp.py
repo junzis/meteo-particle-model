@@ -264,7 +264,7 @@ class MeteoParticleModel:
         for i in range(n0):
             acwx, acwy, actemp, xlo, xhi, ylo, yhi, zlo, zhi = (
                 self.AC_WX[i],
-                self.AC_WX[i],
+                self.AC_WY[i],
                 self.AC_TEMP[i],
                 XLo[i],
                 XHi[i],
